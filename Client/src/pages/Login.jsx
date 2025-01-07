@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+import loginImage from '../assets/photo/login.png'
+
 const LoginPage = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -22,13 +24,12 @@ const LoginPage = () => {
             Make Society Better
           </h2>
           
-
           <div className="relative mb-8">
             <div className="w-full h-48 md:h-64 bg-teal-100 rounded-lg opacity-30 absolute" />
             <img 
-              src="././assets/photo/login.png"
+              src={loginImage}
               alt="World Map"
-              className="w-full h-48 md:h-64 object-contain relative z-10"
+              className="w-full h-108 md:h-124 object-contain relative z-10"
             />
           </div>
 

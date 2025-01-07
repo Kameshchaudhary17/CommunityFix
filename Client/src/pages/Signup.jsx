@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import loginImage from '../assets/photo/login.png'
+
 
 const SignupPage = () => {
   const [formData, setFormData] = useState({
@@ -50,9 +52,9 @@ const SignupPage = () => {
           <div className="relative mb-8">
             <div className="w-full h-64 md:h-80 bg-teal-100 rounded-lg absolute opacity-30" />
             <img 
-              src="/api/placeholder/800/600"
+              src={loginImage}
               alt="World Map with People"
-              className="w-full h-64 md:h-80 object-contain relative z-10"
+              className="w-full h-108 md:h-124 object-contain relative z-10"
             />
           </div>
         </div>
