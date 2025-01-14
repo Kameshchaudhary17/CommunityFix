@@ -16,7 +16,7 @@ const Sidebar = () => {
 
   const menuItems = [
     { icon: <HomeIcon size={20} />, label: 'Home', path: '/home' },
-    { icon: <MessageSquare size={20} />, label: 'Report Issue', path: '/home' },
+    { icon: <MessageSquare size={20} />, label: 'Report Issue', path: '/municipality' },
     { icon: <LineChart size={20} />, label: 'Track Issue', path: '/track-issue' },
     { icon: <Lightbulb size={20} />, label: 'Suggestion', path: '/suggestion' },
     { icon: <BookMarked size={20} />, label: 'My Suggestion', path: '/my-suggestion' },
@@ -53,7 +53,7 @@ const Sidebar = () => {
                   <span className="font-medium">{item.label}</span>
                 </div>
                 {activeItem === item.label && (
-                  <div className="bg-blue-600 rounded-r"></div>
+                  <div className="absolute -left-3 top-0 w-1 h-full bg-blue-600 rounded-l"></div>
                 )}
               </Link>
             </li>
