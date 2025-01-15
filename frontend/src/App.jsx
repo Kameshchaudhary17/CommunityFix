@@ -6,6 +6,7 @@ import Home from './pages/Home'
 import './App.css'
 import LandingPage from './pages/Landing'
 import MunicipalityDashboard from './pages/MunicipalityDashboard'
+import ReportPage from './pages/ReportPage'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <Route path = '/login' element = {<Login />}/>
       <Route path = '/signup' element = {<Signup />}/>
       <Route path = '/home' element = {<Home />}/>
+      <Route path = '/report' element = {<ReportPage />}/>
       <Route path = '/municipality' element = {<MunicipalityDashboard />}/>
      </Routes>
      </BrowserRouter>

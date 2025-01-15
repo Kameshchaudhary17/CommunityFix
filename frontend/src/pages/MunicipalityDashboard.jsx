@@ -4,16 +4,15 @@ import MunicipalitySidebar from '../components/MunicipalitySidebar';
 
 const MunicipalityDashboard = () => {
   return (
-    <>
-    <div className="flex">
-    {/* Sidebar */}
-    <div className="w-64 fixed h-screen">
-      <MunicipalitySidebar/>
-    </div>
-    </div>
-  <div className="max-w-3xl mx-auto p-4">
-      {/* Header */}
-     <div className="flex items-center justify-between mb-6">
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
+      <MunicipalitySidebar className="w-64 flex-shrink-0" />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white shadow-sm px-6 py-4">
+          <div className="flex items-center justify-between">
             <div className="relative flex-1 max-w-xl">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
@@ -34,58 +33,84 @@ const MunicipalityDashboard = () => {
               </div>
             </div>
           </div>
-      {/* Main Content */}
-      <main className="flex flex-col flex-1 p-6">
-        {/* Statistics */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          <div className="p-4 bg-white shadow rounded-lg">
-            <div className="flex items-center space-x-3">
-              <Home size={24} className="text-blue-500" />
-              <div>
-                <h3 className="text-sm text-gray-500">Total Wards</h3>
-                <p className="text-xl font-semibold">25</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 bg-white shadow rounded-lg">
-            <div className="flex items-center space-x-3">
-              <Users size={24} className="text-teal-500" />
-              <div>
-                <h3 className="text-sm text-gray-500">Registered Users</h3>
-                <p className="text-xl font-semibold">1,250</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 bg-white shadow rounded-lg">
-            <div className="flex items-center space-x-3">
-              <FileText size={24} className="text-yellow-500" />
-              <div>
-                <h3 className="text-sm text-gray-500">Reports Filed</h3>
-                <p className="text-xl font-semibold">340</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 bg-white shadow rounded-lg">
-            <div className="flex items-center space-x-3">
-              <Activity size={24} className="text-red-500" />
-              <div>
-                <h3 className="text-sm text-gray-500">Active Issues</h3>
-                <p className="text-xl font-semibold">15</p>
-              </div>
-            </div>
-          </div>
-        </section>
+        </header>
 
-        {/* Dashboard Content */}
-        <section className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Dashboard Overview</h2>
-          <p className="text-gray-600">
-            Welcome to the Municipality Dashboard. Here, you can manage reports, track suggestions, and review community activity.
-          </p>
-        </section>
-      </main>
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto">
+            {/* Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <Home size={24} className="text-blue-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Total Wards</h3>
+                    <p className="text-2xl font-semibold text-gray-900 mt-1">25</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-teal-50 p-3 rounded-lg">
+                    <Users size={24} className="text-teal-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Registered Users</h3>
+                    <p className="text-2xl font-semibold text-gray-900 mt-1">1,250</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <FileText size={24} className="text-yellow-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Reports Filed</h3>
+                    <p className="text-2xl font-semibold text-gray-900 mt-1">340</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <Activity size={24} className="text-red-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Active Issues</h3>
+                    <p className="text-2xl font-semibold text-gray-900 mt-1">15</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activities</h2>
+                <p className="text-gray-600">
+                  Track and manage the latest activities and reports from your community members.
+                  Stay updated with real-time notifications and status changes.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+                <p className="text-gray-600">
+                  Access frequently used tools and features to manage your municipality's reports,
+                  review suggestions, and respond to community needs efficiently.
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
-    </>
   );
 };
 
