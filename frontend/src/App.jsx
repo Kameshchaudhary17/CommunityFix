@@ -7,6 +7,8 @@ import './App.css'
 import LandingPage from './pages/Landing'
 import MunicipalityDashboard from './pages/MunicipalityDashboard'
 import ReportPage from './pages/ReportPage'
+import AdminDashboard from './pages/AdminDashboard'
+import AddMunicipality from './pages/AddMunicipality'
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
       <Route path = '/home' element = {<Home />}/>
       <Route path = '/report' element = {<ReportPage />}/>
       <Route path = '/municipality' element = {<MunicipalityDashboard />}/>
+      <Route path = '/admin' element = {<AdminDashboard />}/>
+      <Route path = '/register' element = {< AddMunicipality />}/>
      </Routes>
      </BrowserRouter>
   </>
