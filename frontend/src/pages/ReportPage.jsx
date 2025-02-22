@@ -4,6 +4,8 @@ import Sidebar from '../components/Sidebar';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import "leaflet/dist/leaflet.css";
+import axios from 'axios';
+import { toast, Toaster } from 'react-hot-toast';
 
 const customIcon = new L.Icon({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
@@ -31,6 +33,10 @@ const ReportPage = () => {
   });
 
   const [location, setLocation] = useState({ lat: 27.7172, lng: 85.3240 });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+  const token = localStorage.getItem('token');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,14 +47,71 @@ const ReportPage = () => {
     setFormData({ ...formData, photo: e.target.files[0] });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log({ ...formData, location });
-    alert('Report submitted successfully!');
+  
+    // Validation
+    if (!formData.title || !formData.description || 
+        !formData.municipality || !formData.wardNumber) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+  
+    setIsSubmitting(true);
+  
+    try {
+      // Prepare the data object for submission
+      const submissionData = {
+        ...formData,
+        latitude: location.lat,
+        longitude: location.lng
+      };
+  
+     
+
+  
+      const response = await axios.post(
+        'http://localhost:5555/api/report/createReport',
+        submissionData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+  
+      if (response.data) {
+        toast.success('Report submitted successfully!');
+        
+        // Reset form
+        setFormData({
+          title: '',
+          description: '',
+          photo: null,
+          municipality: '',
+          wardNumber: '',
+        });
+        setLocation({ lat: 27.7172, lng: 85.3240 });
+        
+        // Clear file input
+        if (document.getElementById('photo')) {
+          document.getElementById('photo').value = '';
+        }
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast.error(error.response?.data?.error || 'Failed to submit report');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="flex h-screen bg-gray-100">
+      {/* Toaster for notifications */}
+      <Toaster />
+
       {/* Sidebar */}
       <Sidebar className="w-64 flex-shrink-0" />
 
@@ -102,6 +165,7 @@ const ReportPage = () => {
                         onChange={handleChange}
                         placeholder="Enter a title for your report"
                         className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                       />
                     </div>
 
@@ -118,6 +182,7 @@ const ReportPage = () => {
                         placeholder="Provide a detailed description of the issue"
                         rows="4"
                         className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                       />
                     </div>
 
@@ -177,6 +242,7 @@ const ReportPage = () => {
                           onChange={handleChange}
                           placeholder="Enter municipality"
                           className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
                         />
                       </div>
                       <div>
@@ -191,6 +257,7 @@ const ReportPage = () => {
                           onChange={handleChange}
                           placeholder="Ward no."
                           className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
                         />
                       </div>
                     </div>
@@ -200,9 +267,10 @@ const ReportPage = () => {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+                  disabled={isSubmitting}
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Submit Report
+                  {isSubmitting ? 'Submitting...' : 'Submit Report'}
                 </button>
               </form>
             </div>

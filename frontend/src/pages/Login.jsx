@@ -1,24 +1,45 @@
 import React, { useState } from 'react';
-
+import axios from 'axios'
 import loginImage from '../assets/photo/login.png'
+import { useNavigate } from 'react-router-dom';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
-    username: '',
+    user_email: '',
     password: ''
   });
 
+  const navigate = useNavigate();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     try {
-      const response = await axios.post('http://localhost:5555/api/auth/login', formData)
+      const response = await axios.post('http://localhost:5555/api/auth/login', formData);
+  
+      // Store token & user info in localStorage
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+  
+      console.log('Login successful:', response.data.user.role);
+  
+      if(response.data.user.role === "USER"){
 
-      console.log(response)
+        navigate('/home'); 
+      }else if(response.data.user.role === "MUNICIPALITY"){
+        navigate('/municipality'); 
+
+      }else if(response.data.user.role === "ADMIN"){
+        navigate('/admin'); 
+
+      }
+      // Redirect to dashboard or home page
+  
     } catch (error) {
-      console.log(error)
+      console.error('Login failed:', error.response?.data?.message || error.message);
+      alert(error.response?.data?.message || 'Login failed. Please try again.');
     }
   };
-
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Section - Illustration */}
@@ -60,16 +81,16 @@ const LoginPage = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label 
-                htmlFor="username" 
+                htmlFor="user_email" 
                 className="block text-sm font-medium text-gray-700"
               >
-                Username or email
+                user_email or email
               </label>
               <input
                 type="text"
-                id="username"
-                value={formData.username}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                id="user_email"
+                value={formData.user_email}
+                onChange={(e) => setFormData({...formData, user_email: e.target.value})}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 required
               />

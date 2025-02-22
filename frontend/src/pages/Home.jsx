@@ -1,40 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Bell } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 
 const Home = () => {
-  const activities = [
-    {
-      id: 1,
-      name: "Lionel Messi",
-      title: "Title",
-      description: "Write description about the report.",
-      status: "pending",
-      votes: 0,
-      avatar: "/api/placeholder/40/40"
-    },
-    {
-      id: 2,
-      name: "Neymar",
-      title: "Title",
-      description: "Write description about the report.",
-      status: "in progress",
-      votes: 0,
-      avatar: "/api/placeholder/40/40"
-    },
-    {
-      id: 3,
-      name: "Ronaldo",
-      title: "Title",
-      description: "Write description about the report.",
-      status: "resolved",
-      votes: 0,
-      avatar: "/api/placeholder/40/40"
-    }
-  ];
+  const [reports, setReports] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const getStatusColor = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'pending':
         return 'bg-yellow-400';
       case 'in progress':
@@ -45,6 +19,52 @@ const Home = () => {
         return 'bg-gray-400';
     }
   };
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch('http://localhost:5555/api/report/getReport', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch reports');
+        }
+
+        const data = await response.json();
+        setReports(data.reports || []); // Ensure we correctly extract reports
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error fetching reports:', err);
+        setError(err.message);
+        setIsLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, []); // If needed, add `[token]` as dependency
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -60,7 +80,7 @@ const Home = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Search people"
+                placeholder="Search reports"
                 className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none"
               />
             </div>
@@ -82,42 +102,57 @@ const Home = () => {
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto">
             {/* Activities Section */}
-            <h2 className="text-xl font-bold mb-6">Activities</h2>
+            <h2 className="text-xl font-bold mb-6">Recent Reports</h2>
             
-            <div className="space-y-4">
-              {activities.map((activity) => (
-                <div key={activity.id} className="bg-white shadow-sm rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3">
-                      <img
-                        src={activity.avatar}
-                        alt={activity.name}
-                        className="w-10 h-10 rounded-full"
-                      />
-                      <div>
-                        <h3 className="font-medium text-gray-900">{activity.name}</h3>
-                        <h4 className="font-medium text-gray-800 mt-1">{activity.title}</h4>
-                        <p className="text-gray-600 mt-1">{activity.description}</p>
-                        <div className="flex items-center space-x-3 mt-2">
-                          <button className="flex items-center space-x-1 px-3 py-1 border rounded-full hover:bg-gray-100 transition-colors duration-200">
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M5 15l7-7 7 7" />
-                            </svg>
-                            <span>vote</span>
-                          </button>
-                          <div className={`px-2 py-1 rounded-full text-sm ${getStatusColor(activity.status)}`}>
-                            {activity.status}
+            {reports.length === 0 ? (
+              <div className="text-center text-gray-500">
+                No reports found
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reports.map((report) => (
+                  <div 
+                    key={report.report_id} 
+                    className="bg-white shadow-sm rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3">
+                        {report.photo ? (
+                          <img
+                            src={report.photo}
+                            alt={report.title}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-500">NP</span>
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="font-medium text-gray-900">{report.user?.user_name || 'Anonymous'}</h3>
+                          <h4 className="font-medium text-gray-800 mt-1">{report.title}</h4>
+                          <p className="text-gray-600 mt-1">{report.description}</p>
+                          <div className="flex items-center space-x-3 mt-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-gray-600">Location:</span>
+                              <span className="text-gray-800">
+                                {report.municipality}, Ward {report.wardNumber}
+                              </span>
+                            </div>
+                            <div className={`px-2 py-1 rounded-full text-sm text-white ${getStatusColor(report.status)}`}>
+                              {report.status}
+                            </div>
                           </div>
                         </div>
                       </div>
+                      <button className="text-blue-600 hover:text-blue-700 font-medium">
+                        View Detail
+                      </button>
                     </div>
-                    <button className="text-blue-600 hover:text-blue-700 font-medium">
-                      View Detail
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </main>
       </div>
