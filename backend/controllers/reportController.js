@@ -73,11 +73,12 @@ const getAllReports = async (req, res) => {
 
 // Get report by ID
 const getReportById = async (req, res) => {
-  const { id } = req.query;
+  const { reportId } = req.params;
+
 
   try {
     const report = await prisma.reports.findUnique({
-      where: { report_id: Number(id) },
+      where: { report_id: Number(reportId) },
       include: {
         user: {
           select: {
@@ -87,6 +88,8 @@ const getReportById = async (req, res) => {
         }
       }
     });
+
+    
 
     if (!report) {
       return res.status(404).json({ error: "Report not found." });

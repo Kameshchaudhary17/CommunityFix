@@ -7,6 +7,7 @@ const reportController = require('../controllers/reportController')
 
 router.post('/createReport', authMiddleware.authenticateUser, reportController.createReport)
 router.get('/getReport', authMiddleware.authenticateUser, reportController.getAllReports)
+router.get('/getReportById/:reportId', authMiddleware.authenticateUser, reportController.getReportById)
 
 
 module.exports = router;

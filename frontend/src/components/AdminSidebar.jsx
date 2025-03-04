@@ -11,7 +11,7 @@ const AdminSidebar = ({ onNavigate }) => {
       icon: <Home className="w-5 h-5" />
     },
     {
-      path: '/manage-municipality',
+      path: '/register',
       name: 'Manage Municipality',
       icon: <Building2 className="w-5 h-5" />
     }

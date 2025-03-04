@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import loginImage from '../assets/photo/login.png'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom';
 
 const SignupPage = () => {
   const [formData, setFormData] = useState({
@@ -14,6 +15,8 @@ const SignupPage = () => {
     wardNumber: '',
     photo: null
   });
+
+   const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -37,6 +40,8 @@ const SignupPage = () => {
       const response = await axios.post('http://localhost:5555/api/auth/signup', formData);
 
       console.log(response)
+      if(response)
+        navigate('/home')
     } catch (error) {
       console.log(error)
     }
