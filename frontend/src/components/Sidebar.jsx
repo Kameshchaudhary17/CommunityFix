@@ -11,6 +11,8 @@ import {
   LogOut
 } from 'lucide-react';
 
+
+
 const Sidebar = () => {
   const [activeItem, setActiveItem] = useState('Home');
 
@@ -62,7 +64,7 @@ const Sidebar = () => {
       </nav>
 
       {/* Submit Button */}
-      <button className="w-full bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 transition-colors duration-200 mt-4">
+      <button className="w-full bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 transition-colors duration-200 mt-4" >
         Submit your Suggestion
       </button>
     </div>

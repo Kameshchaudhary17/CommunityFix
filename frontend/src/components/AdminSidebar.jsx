@@ -6,7 +6,7 @@ const AdminSidebar = ({ onNavigate }) => {
 
   const menuItems = [
     {
-      path: '/dashboard',
+      path: '/admin',
       name: 'Dashboard',
       icon: <Home className="w-5 h-5" />
     },

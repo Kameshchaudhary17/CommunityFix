@@ -12,6 +12,8 @@ import ReportPage from './pages/ReportPage'
 import AdminDashboard from './pages/AdminDashboard'
 import AddMunicipality from './pages/AddMunicipality'
 import ReportDetail from './pages/ReportDetail'
+import Suggestion from './pages/Suggestion'
+import Profile from './pages/Profile'
 
 
 function App() {
@@ -28,7 +30,9 @@ function App() {
       <Route path = '/report' element = {<ReportPage />}/>
       <Route path = '/municipality' element = {<MunicipalityDashboard />}/>
       <Route path = '/admin' element = {<AdminDashboard />}/>
+      <Route path = '/profile' element = {<Profile />}/>
       <Route path = '/register' element = {< AddMunicipality />}/>
+      <Route path = '/suggestion' element = {< Suggestion />}/>
       <Route path = '/reportdetail/:reportId' element = {< ReportDetail />}/>
       
      </Routes>
