@@ -1,3 +1,4 @@
+// Import React and other dependencies
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Calendar, User, ArrowLeft, ThumbsUp, Clock, MessageCircle } from 'lucide-react';
@@ -38,6 +39,19 @@ const ReportDetail = () => {
     }
   };
 
+  // Function to get the full image URL
+  const getPhotoUrl = (photoPath) => {
+    if (!photoPath) return null;
+    
+    // If the path is already a full URL, return it as is
+    if (photoPath.startsWith('http')) {
+      return photoPath;
+    }
+    
+    // Otherwise, construct the full URL
+    return `http://localhost:5555/${photoPath.replace(/^\.\//, '')}`;
+  };
+
   useEffect(() => {
     // Check if report is upvoted from local storage
     const upvotedReports = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
@@ -71,11 +85,34 @@ const ReportDetail = () => {
           
           if (response.data && response.data.report) {
             console.log('Report data received:', response.data.report);
-            setReport(response.data.report);
-            setUpvoteCount(response.data.report.upvotes || 0);
             
-            if (response.data.report.photos && response.data.report.photos.length > 0) {
-              setSelectedPhoto(response.data.report.photos[0]);
+            // Format the photo URL properly
+            let reportData = response.data.report;
+            
+            // Handle photo field - convert to array if it's a single string
+            if (reportData.photo) {
+              if (typeof reportData.photo === 'string') {
+                reportData.photos = [getPhotoUrl(reportData.photo)];
+              }
+            }
+            
+            // Handle photos array if it exists
+            if (reportData.photos && Array.isArray(reportData.photos)) {
+              reportData.photos = reportData.photos.map(photo => 
+                typeof photo === 'string' ? getPhotoUrl(photo) : null
+              ).filter(photo => photo !== null);
+            }
+            
+            // If no photos array but photo exists, create photos array
+            if (!reportData.photos && reportData.photo) {
+              reportData.photos = [getPhotoUrl(reportData.photo)];
+            }
+            
+            setReport(reportData);
+            setUpvoteCount(reportData.upvotes || 0);
+            
+            if (reportData.photos && reportData.photos.length > 0) {
+              setSelectedPhoto(reportData.photos[0]);
             }
           } else {
             console.error('Invalid response format or missing report data:', response.data);
@@ -97,11 +134,27 @@ const ReportDetail = () => {
             
             if (altResponse.data) {
               console.log('Alternative API successful:', altResponse.data);
-              setReport(altResponse.data);
-              setUpvoteCount(altResponse.data.upvotes || 0);
               
-              if (altResponse.data.photos && altResponse.data.photos.length > 0) {
-                setSelectedPhoto(altResponse.data.photos[0]);
+              let reportData = altResponse.data;
+              
+              // Format photo URLs
+              if (reportData.photo) {
+                if (typeof reportData.photo === 'string') {
+                  reportData.photos = [getPhotoUrl(reportData.photo)];
+                }
+              }
+              
+              if (reportData.photos && Array.isArray(reportData.photos)) {
+                reportData.photos = reportData.photos.map(photo => 
+                  typeof photo === 'string' ? getPhotoUrl(photo) : null
+                ).filter(photo => photo !== null);
+              }
+              
+              setReport(reportData);
+              setUpvoteCount(reportData.upvotes || 0);
+              
+              if (reportData.photos && reportData.photos.length > 0) {
+                setSelectedPhoto(reportData.photos[0]);
               }
               
               setIsLoading(false);
@@ -210,6 +263,9 @@ const ReportDetail = () => {
     );
   }
 
+  // Check if we have photo data
+  const hasPhotos = report.photos && Array.isArray(report.photos) && report.photos.length > 0;
+  
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -299,8 +355,8 @@ const ReportDetail = () => {
                   </div>
                 </div>
 
-                {/* Photos Section - Only show if photos exist and aren't null */}
-                {report.photos && Array.isArray(report.photos) && report.photos.length > 0 && report.photos[0] !== null && (
+                {/* Photos Section - Display if we have photos */}
+                {hasPhotos && (
                   <div className="bg-white rounded-lg shadow-sm p-6">
                     <h3 className="font-medium text-gray-700 mb-4">Report Photos</h3>
 
@@ -313,21 +369,34 @@ const ReportDetail = () => {
                       />
                     </div>
 
-                    {/* Photo Gallery */}
-                    <div className="grid grid-cols-5 gap-2">
-                      {report.photos.map((photo, index) => (
-                        <div
-                          key={index}
-                          onClick={() => setSelectedPhoto(photo)}
-                          className={`cursor-pointer rounded-md overflow-hidden h-20 ${selectedPhoto === photo ? 'ring-2 ring-blue-500' : ''}`}
-                        >
-                          <img
-                            src={photo}
-                            alt={`Report photo ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
+                    {/* Photo Gallery - Only show if we have multiple photos */}
+                    {report.photos.length > 1 && (
+                      <div className="grid grid-cols-5 gap-2">
+                        {report.photos.map((photo, index) => (
+                          <div
+                            key={index}
+                            onClick={() => setSelectedPhoto(photo)}
+                            className={`cursor-pointer rounded-md overflow-hidden h-20 ${selectedPhoto === photo ? 'ring-2 ring-blue-500' : ''}`}
+                          >
+                            <img
+                              src={photo}
+                              alt={`Report photo ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Display message if photo should exist but doesn't load */}
+                {report.photo && !hasPhotos && (
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="font-medium text-gray-700 mb-4">Report Photos</h3>
+                    <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg">
+                      <p>The photo for this report could not be loaded.</p>
+                      <p className="text-sm mt-2">Path: {report.photo}</p>
                     </div>
                   </div>
                 )}
@@ -370,8 +439,10 @@ const ReportDetail = () => {
                   </div>
                 </div>
 
+                {/* Rest of your code remains the same */}
                 {/* Status Timeline */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
+                  {/* Status timeline content - unchanged */}
                   <h3 className="font-medium text-gray-700 mb-4">Status Updates</h3>
                   <div className="space-y-4">
                     <div className="flex">
@@ -418,9 +489,9 @@ const ReportDetail = () => {
 
                 {/* Similar Reports */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
+                  {/* Similar reports content - unchanged */}
                   <h3 className="font-medium text-gray-700 mb-4">Similar Reports</h3>
                   <div className="space-y-3">
-                    {/* This would typically be populated from an API call, but for now we'll show a placeholder */}
                     <div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition cursor-pointer">
                       <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0"></div>
                       <div>
@@ -447,6 +518,7 @@ const ReportDetail = () => {
 
                 {/* Additional Info */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
+                  {/* Additional info content - unchanged */}
                   <h3 className="font-medium text-gray-700 mb-4">Additional Information</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">

@@ -1,5 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
 generator client {
   provider = "prisma-client-js"
 }
@@ -21,15 +19,22 @@ model users {
   municipality     String?   @db.VarChar(100)
   wardNumber       Int?
   
+  // Profile images
+  profilePicture   String?   @db.VarChar(255)
+  citizenshipPhoto String?   @db.VarChar(255)
+  
   // Verification fields
   otp              String?
   otp_expiry       DateTime?
   isVerified       Boolean?  @default(false)
   isActive         Boolean   @default(true)
   
-  // Relation to reports
+  // Relations
   reports          reports[]
-  
+  suggestions      Suggestion[]
+  comments         Comment[]
+  upvotes          Upvote[]  // Tracks user upvotes
+
   // Timestamps
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -54,4 +59,59 @@ enum UserRole {
   USER
   MUNICIPALITY
   ADMIN
+}
+
+model Suggestion {
+  id               Int       @id @default(autoincrement())
+  title            String    @db.VarChar(255)
+  description      String    @db.Text
+  status           Status    @default(SUBMITTED)
+  municipality     String    @db.VarChar(100)
+  wardNumber       Int
+
+  // Relationships
+  userId           Int
+  user             users     @relation(fields: [userId], references: [user_id])
+  upvotes          Upvote[]  // Tracks upvotes
+
+  // Timestamps
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  comments         Comment[]
+}
+
+model Comment {
+  id               Int       @id @default(autoincrement())
+  text             String    @db.Text
+  
+  // Relationships
+  suggestionId     Int
+  suggestion       Suggestion @relation(fields: [suggestionId], references: [id])
+  userId           Int
+  user             users     @relation(fields: [userId], references: [user_id])
+  
+  // Timestamps
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Upvote {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  suggestionId Int
+  createdAt    DateTime  @default(now())
+
+  // Relations
+  user        users      @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+  suggestion  Suggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+
+  // Ensure a user can only upvote a suggestion once
+  @@unique([userId, suggestionId])
+}
+
+enum Status {
+  SUBMITTED
+  IN_PROGRESS
+  APPROVED
+  REJECTED
 }

@@ -48,11 +48,33 @@ const createReport = async (req, res) => {
   }
 };
 
-// Get all reports
 const getAllReports = async (req, res) => {
   try {
-    // Fetch all reports without pagination or sorting
+    const userId = req.user?.id;
+
+    console.log("User ID:", userId);
+
+    // Fetch user details to get municipality and wardNumber
+    const user = await prisma.users.findUnique({
+      where: { user_id: userId },
+      select: {
+        municipality: true,
+        wardNumber: true
+      }
+    });
+
+    console.log("User Details:", user);
+
+    if (!user || !user.municipality || user.wardNumber === null) {
+      return res.status(403).json({ message: 'Access denied: Municipality and Ward Number are required' });
+    }
+
+    // Fetch reports based on the user's municipality and wardNumber
     const reports = await prisma.reports.findMany({
+      where: {
+        municipality: user.municipality,
+        wardNumber: user.wardNumber
+      },
       include: {
         user: {
           select: {

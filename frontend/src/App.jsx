@@ -14,6 +14,7 @@ import AddMunicipality from './pages/AddMunicipality'
 import ReportDetail from './pages/ReportDetail'
 import Suggestion from './pages/Suggestion'
 import Profile from './pages/Profile'
+import SuggestionManagement from './pages/SuggestionManagement'
 
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
       <Route path = '/register' element = {< AddMunicipality />}/>
       <Route path = '/suggestion' element = {< Suggestion />}/>
       <Route path = '/reportdetail/:reportId' element = {< ReportDetail />}/>
+      <Route path = '/suggestionmanagement' element = {< SuggestionManagement />}/>
       
      </Routes>
      </BrowserRouter>

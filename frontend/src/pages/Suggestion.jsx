@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { ThumbsUp, MessageSquare, Clock, Check, Filter, SortDesc, Search, Bell, Plus, X, Send } from 'lucide-react';
-import { toast, Toaster } from 'react-hot-toast';
+import React, { useState, useEffect } from 'react';
+import {Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import Hearder from '../components/Hearder';
+import axios from 'axios';
+import { toast, Toaster } from 'react-hot-toast';
 
 // Comment Component
 const CommentItem = ({ author, text, time }) => (
@@ -20,36 +22,73 @@ const CommentItem = ({ author, text, time }) => (
 );
 
 // Comment Box Modal
-const CommentBox = ({ isOpen, onClose, player }) => {
+const CommentBox = ({ isOpen, onClose, suggestion }) => {
   const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState([
-    { id: 1, author: 'Coach Smith', text: 'Great performance in the last match!', time: '2 days ago' },
-    { id: 2, author: 'Manager Jones', text: 'Need to work on defensive positioning.', time: '1 day ago' }
-  ]);
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const token = localStorage.getItem('token');
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen && suggestion) {
+      fetchComments();
+    }
+  }, [isOpen, suggestion]);
 
-  const handleSubmitComment = (e) => {
+  const fetchComments = async () => {
+    if (!suggestion || !suggestion.id) return;
+    
+    setLoading(true);
+    try {
+      const response = await axios.get(`http://localhost:5555/api/suggestion/${suggestion.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.data && response.data.suggestion && response.data.suggestion.comments) {
+        setComments(response.data.suggestion.comments);
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      toast.error('Failed to load comments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!commentText.trim()) return;
     
-    const newComment = {
-      id: comments.length + 1,
-      author: 'Kamesh',
-      text: commentText,
-      time: 'Just now'
-    };
-    
-    setComments([...comments, newComment]);
-    setCommentText('');
-    toast.success('Comment added successfully');
+    try {
+      const response = await axios.post(
+        `http://localhost:5555/api/suggestion/${suggestion.id}/comments`, 
+        { text: commentText },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.comment) {
+        setComments([...comments, response.data.comment]);
+        setCommentText('');
+        toast.success('Comment added successfully');
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-lg max-h-[80vh] flex flex-col shadow-xl">
         <div className="flex justify-between items-center px-4 py-3 border-b">
-          <h3 className="font-medium text-lg">Comments for {player?.name}</h3>
+          <h3 className="font-medium text-lg">Comments for {suggestion?.title}</h3>
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
@@ -59,15 +98,17 @@ const CommentBox = ({ isOpen, onClose, player }) => {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4">
-          {comments.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading comments...</div>
+          ) : comments.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No comments yet</div>
           ) : (
-            comments.map(comment => (
+            comments.map((comment, index) => (
               <CommentItem 
-                key={comment.id} 
-                author={comment.author} 
+                key={comment.id || index} 
+                author={comment.user?.user_name || 'Anonymous'} 
                 text={comment.text} 
-                time={comment.time} 
+                time={new Date(comment.createdAt).toLocaleString()} 
               />
             ))
           )}
@@ -92,7 +133,11 @@ const CommentBox = ({ isOpen, onClose, player }) => {
                 type="submit"
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-500 p-1 rounded-full hover:bg-blue-50"
               >
-                <Send size={18} />
+                <span className="flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </span>
               </button>
             </div>
           </div>
@@ -106,16 +151,56 @@ const CommentBox = ({ isOpen, onClose, player }) => {
 const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [municipality, setMunicipality] = useState('');
+  const [wardNumber, setWardNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const token = localStorage.getItem('token');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return;
     
-    onSubmit({ title, description });
-    setTitle('');
-    setDescription('');
+    // Validation
+    if (!title.trim() || !description.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        'http://localhost:5555/api/suggestion/createSuggestion',
+        {
+          title,
+          description
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data) {
+        onSubmit(response.data.suggestion);
+        setTitle('');
+        setDescription('');
+        setMunicipality('');
+        setWardNumber('');
+        toast.success('Suggestion created successfully');
+      }
+    } catch (error) {
+      console.error('Error creating suggestion:', error);
+      if (error.response?.status === 401) {
+        toast.error('You must be logged in to create a suggestion');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to create suggestion');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,8 +242,13 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              required
             />
           </div>
+          
+          
+            
+          
           
           <div className="flex justify-end gap-2">
             <button 
@@ -170,9 +260,10 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
             </button>
             <button 
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              disabled={loading}
+              className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              Create Suggestion
+              {loading ? 'Creating...' : 'Create Suggestion'}
             </button>
           </div>
         </form>
@@ -181,52 +272,63 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
   );
 };
 
-// PlayerReportCard component for displaying individual player cards
-const PlayerReportCard = ({ player, status, upvotes, comments, onCommentClick, onUpvote }) => {
-  const statusColors = {
-    submitted: 'bg-blue-100 text-blue-700',
-    'in progress': 'bg-orange-100 text-orange-700',
-    approved: 'bg-green-100 text-green-700'
+// Suggestion card component
+const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'submitted': return 'bg-blue-100 text-blue-700';
+      case 'in progress': return 'bg-orange-100 text-orange-700';
+      case 'approved': return 'bg-green-100 text-green-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
   };
-  
-  const statusIcons = {
-    submitted: <Check size={16} />,
-    'in progress': <Clock size={16} />,
-    approved: <ThumbsUp size={16} className="text-green-700" />
-  };
-  
+
   return (
-    <div className="bg-gray-50 rounded-lg p-4 mb-3 border border-gray-200 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
       <div className="flex items-start">
         <div className="h-12 w-12 rounded-full overflow-hidden mr-3 flex-shrink-0 border-2 border-gray-200">
-          <img src={`/api/placeholder/80/80`} alt={player.name} className="h-full w-full object-cover" />
+          <img 
+            src="/api/placeholder/80/80" 
+            alt={suggestion.user?.user_name || 'User'} 
+            className="h-full w-full object-cover" 
+          />
         </div>
         
         <div className="flex-1">
-          <h3 className="font-semibold text-lg">{player.name}</h3>
-          <p className="text-gray-500 text-sm mb-3">Player Performance Report</p>
-          
-          <div className="flex flex-wrap items-center gap-3">
-            <button 
-              className="flex items-center hover:bg-gray-200 px-2 py-1 rounded-md transition-colors"
-              onClick={() => onUpvote(player)}
-            >
-              <ThumbsUp size={14} className="mr-1 text-gray-500" />
-              <span className="text-sm font-medium">{upvotes}</span>
-            </button>
-            
-            <button 
-              className="flex items-center hover:bg-gray-200 px-2 py-1 rounded-md transition-colors"
-              onClick={() => onCommentClick(player)}
-            >
-              <MessageSquare size={14} className="mr-1 text-gray-500" />
-              <span className="text-sm font-medium">{comments}</span>
-            </button>
-            
-            <div className={`ml-auto px-2 py-1 rounded-full text-xs font-medium flex items-center ${statusColors[status]}`}>
-              {statusIcons[status]}
-              <span className="ml-1 capitalize">{status}</span>
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-semibold text-lg">{suggestion.title}</h3>
+              <p className="text-sm text-gray-500">
+                {suggestion.user?.user_name || 'Anonymous'} • {new Date(suggestion.createdAt).toLocaleDateString()}
+              </p>
             </div>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(suggestion.status)}`}>
+              {suggestion.status || 'Submitted'}
+            </span>
+          </div>
+          
+          <p className="text-gray-700 my-2">{suggestion.description}</p>
+          
+          <div className="text-xs text-gray-500 mb-3">
+            {suggestion.municipality}, Ward {suggestion.wardNumber}
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <button 
+              className="flex items-center text-gray-500 hover:text-blue-600"
+              onClick={() => onUpvote(suggestion)}
+            >
+              <ThumbsUp size={16} className="mr-1" />
+              <span>{suggestion.upvotes || 0}</span>
+            </button>
+            
+            <button 
+              className="flex items-center text-gray-500 hover:text-blue-600"
+              onClick={() => onCommentClick(suggestion)}
+            >
+              <MessageSquare size={16} className="mr-1" />
+              <span>{suggestion.commentsCount || suggestion._count?.comments || 0}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -251,75 +353,98 @@ const StatusFilter = ({ value, onChange }) => (
   </div>
 );
 
-// Main Suggestion component
 const Suggestion = () => {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isNewSuggestionOpen, setIsNewSuggestionOpen] = useState(false);
+  const [isCommentBoxOpen, setIsCommentBoxOpen] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [isCommentBoxOpen, setIsCommentBoxOpen] = useState(false);
-  const [isNewSuggestionOpen, setIsNewSuggestionOpen] = useState(false);
+  const token = localStorage.getItem('token');
   
-  // Sample data
-  const [players, setPlayers] = useState([
-    { id: 1, name: 'Lionel Messi', upvotes: 20, comments: 30, status: 'submitted' },
-    { id: 2, name: 'Neymar', upvotes: 10, comments: 30, status: 'in progress' },
-    { id: 3, name: 'Ronaldo', upvotes: 15, comments: 30, status: 'approved' },
-    { id: 4, name: 'Kylian Mbappé', upvotes: 17, comments: 25, status: 'submitted' },
-    { id: 5, name: 'Erling Haaland', upvotes: 22, comments: 18, status: 'in progress' }
-  ]);
+  useEffect(() => {
+    fetchSuggestions();
+  }, []);
   
-  // Filter players based on status and search query
-  const filteredPlayers = players.filter(player => {
-    const matchesStatus = statusFilter === 'all' || player.status === statusFilter;
-    const matchesSearch = !searchQuery || 
-      player.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
-  
-  // Handle player upvote
-  const handleUpvote = (player) => {
-    setPlayers(players.map(p => 
-      p.id === player.id ? { ...p, upvotes: p.upvotes + 1 } : p
-    ));
-    toast.success(`Upvoted ${player.name}'s suggestion`);
+  const fetchSuggestions = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get('http://localhost:5555/api/suggestion/getSuggestion', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data && response.data.suggestions) {
+        setSuggestions(response.data.suggestions);
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      setError('Failed to load suggestions. Please try again.');
+      toast.error('Failed to load suggestions');
+    } finally {
+      setLoading(false);
+    }
   };
   
-  // Handle comment click
-  const handleCommentClick = (player) => {
-    setSelectedPlayer(player);
+  const handleCommentClick = (suggestion) => {
+    setSelectedSuggestion(suggestion);
     setIsCommentBoxOpen(true);
   };
   
-  // Handle add new suggestion
-  const handleAddSuggestion = () => {
-    setIsNewSuggestionOpen(true);
+  const handleUpvote = async (suggestion) => {
+    try {
+      const response = await axios.post(
+        `http://localhost:5555/api/suggestion/${suggestion.id}/upvote`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (response.data) {
+        // Update the suggestion in the list
+        setSuggestions(suggestions.map(s => 
+          s.id === suggestion.id ? {...s, upvotes: response.data.upvotes} : s
+        ));
+        
+        toast.success('Upvoted suggestion');
+      }
+    } catch (error) {
+      console.error('Error upvoting suggestion:', error);
+      toast.error('Failed to upvote suggestion');
+    }
   };
   
-  // Handle submit new suggestion
-  const handleSubmitSuggestion = (data) => {
-    const newSuggestion = {
-      id: players.length + 1,
-      name: data.title,
-      upvotes: 0,
-      comments: 0,
-      status: 'submitted'
-    };
-    
-    setPlayers([...players, newSuggestion]);
+  const handleSubmitSuggestion = (newSuggestion) => {
+    setSuggestions([newSuggestion, ...suggestions]);
     setIsNewSuggestionOpen(false);
-    toast.success('New suggestion created successfully');
   };
+  
+  // Filter suggestions based on status and search query
+  const filteredSuggestions = suggestions.filter(suggestion => {
+    const matchesStatus = statusFilter === 'all' || suggestion.status === statusFilter;
+    const matchesSearch = !searchQuery || 
+      suggestion.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      suggestion.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
 
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Toaster for notifications */}
       <Toaster position="top-right" />
-
+      
       {/* Modals */}
       <CommentBox 
         isOpen={isCommentBoxOpen} 
         onClose={() => setIsCommentBoxOpen(false)} 
-        player={selectedPlayer} 
+        suggestion={selectedSuggestion} 
       />
       
       <NewSuggestionModal 
@@ -334,50 +459,20 @@ const Suggestion = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm px-6 py-4 z-10">
-          <div className="flex items-center justify-between">
-            <div className="relative flex-1 max-w-xl">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search players..."
-                className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center space-x-4">
-              <button 
-                className="relative p-2 rounded-full hover:bg-gray-100"
-                onClick={() => toast.success('Checking notifications')}
-              >
-                <Bell size={24} className="text-gray-600" />
-                <span className="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full"></span>
-              </button>
-              <div className="flex items-center space-x-2">
-                <img
-                  src="/api/placeholder/32/32"
-                  alt="Profile"
-                  className="w-8 h-8 rounded-full border-2 border-gray-200"
-                />
-                <span className="font-medium">Kamesh</span>
-              </div>
-            </div>
-          </div>
-        </header>
+      <Hearder/>
 
         {/* Content area with scrolling */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-5xl mx-auto px-6 py-6">
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-3xl mx-auto">
             {/* Page header with title and actions */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-bold mb-1">Suggestions</h1>
-                <p className="text-gray-500">View and manage player suggestions</p>
+                <p className="text-gray-500">Share your ideas with the community</p>
               </div>
               <button 
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-blue-700"
-                onClick={handleAddSuggestion}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-blue-700 transition-colors"
+                onClick={() => setIsNewSuggestionOpen(true)}
               >
                 <Plus size={18} className="mr-1" />
                 Add Suggestion
@@ -385,65 +480,61 @@ const Suggestion = () => {
             </div>
             
             {/* Filter controls */}
-            <div className="mb-6 flex justify-end gap-2">
-              <StatusFilter 
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              />
-              
-              <button className="px-3 py-2 rounded-lg border border-gray-300 flex items-center hover:bg-gray-50">
-                <SortDesc size={16} className="mr-1" />
-                <span>Sort</span>
-              </button>
-            </div>
-            
-            {/* Main content area */}
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <div className="flex justify-between items-center mb-4">
-                <div className="text-sm text-gray-500">
-                  Showing {filteredPlayers.length} of {players.length} reports
-                </div>
-                
-                <div className="flex gap-3">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span className="text-sm">Submitted</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                    <span className="text-sm">In Progress</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="text-sm">Approved</span>
-                  </div>
-                </div>
+            <div className="mb-6 flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                {filteredSuggestions.length} suggestion{filteredSuggestions.length !== 1 ? 's' : ''}
               </div>
               
-              {/* Player cards */}
-              {filteredPlayers.map(player => (
-                <PlayerReportCard 
-                  key={player.id}
-                  player={player}
-                  upvotes={player.upvotes}
-                  comments={player.comments}
-                  status={player.status}
-                  onCommentClick={handleCommentClick}
-                  onUpvote={handleUpvote}
+              <div className="flex gap-2">
+                <StatusFilter 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                 />
-              ))}
-              
-              {/* Empty state */}
-              {filteredPlayers.length === 0 && (
-                <div className="text-center py-12 px-4">
-                  <div className="mx-auto h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mb-4">
-                    <Search size={24} className="text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">No suggestions found</h3>
-                  <p className="text-gray-500 max-w-md mx-auto">
-                    No player suggestions match your current filter criteria. Try changing your filters or create a new suggestion.
-                  </p>
+                
+                <button className="px-3 py-2 rounded-lg border border-gray-300 flex items-center hover:bg-gray-50">
+                  <SortDesc size={16} className="mr-1" />
+                  <span>Sort</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Suggestions list */}
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto h-12 w-12 rounded-full border-4 border-t-blue-600 border-gray-200 animate-spin mb-4"></div>
+                  <p className="text-gray-500">Loading suggestions...</p>
                 </div>
+              ) : error ? (
+                <div className="bg-white rounded-lg p-6 text-center">
+                  <p className="text-red-500 mb-4">{error}</p>
+                  <button 
+                    onClick={fetchSuggestions}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ) : filteredSuggestions.length === 0 ? (
+                <div className="bg-white rounded-lg p-10 text-center">
+                  <p className="text-gray-500 mb-6">No suggestions found</p>
+                  <button 
+                    onClick={() => setIsNewSuggestionOpen(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-flex items-center"
+                  >
+                    <Plus size={18} className="mr-1" />
+                    Create Your First Suggestion
+                  </button>
+                </div>
+              ) : (
+                filteredSuggestions.map(suggestion => (
+                  <SuggestionCard 
+                    key={suggestion.id} 
+                    suggestion={suggestion}
+                    onCommentClick={handleCommentClick}
+                    onUpvote={handleUpvote}
+                  />
+                ))
               )}
             </div>
           </div>

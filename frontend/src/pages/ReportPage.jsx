@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Bell } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import Hearder from '../components/Hearder';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import "leaflet/dist/leaflet.css";
@@ -27,14 +27,13 @@ const ReportPage = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    photo: null,
     municipality: '',
     wardNumber: '',
   });
-
+  const [photo, setPhoto] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [location, setLocation] = useState({ lat: 27.7172, lng: 85.3240 });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
 
   const token = localStorage.getItem('token');
 
@@ -44,7 +43,19 @@ const ReportPage = () => {
   };
 
   const handleFileChange = (e) => {
-    setFormData({ ...formData, photo: e.target.files[0] });
+    const file = e.target.files[0];
+    setPhoto(file);
+    
+    // Create a preview for the selected image
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl(objectUrl);
+      
+      // Free memory when component unmounts
+      return () => URL.revokeObjectURL(objectUrl);
+    } else {
+      setPreviewUrl(null);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -60,23 +71,29 @@ const ReportPage = () => {
     setIsSubmitting(true);
   
     try {
-      // Prepare the data object for submission
-      const submissionData = {
-        ...formData,
-        latitude: location.lat,
-        longitude: location.lng
-      };
-  
-     
-
+      // Create FormData object to handle file uploads
+      const formDataToSend = new FormData();
+      
+      // Append text fields
+      formDataToSend.append('title', formData.title);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('municipality', formData.municipality);
+      formDataToSend.append('wardNumber', formData.wardNumber);
+      formDataToSend.append('latitude', location.lat);
+      formDataToSend.append('longitude', location.lng);
+      
+      // Append photo if exists
+      if (photo) {
+        formDataToSend.append('photo', photo);
+      }
   
       const response = await axios.post(
         'http://localhost:5555/api/report/createReport',
-        submissionData,
+        formDataToSend,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
@@ -88,10 +105,11 @@ const ReportPage = () => {
         setFormData({
           title: '',
           description: '',
-          photo: null,
           municipality: '',
           wardNumber: '',
         });
+        setPhoto(null);
+        setPreviewUrl(null);
         setLocation({ lat: 27.7172, lng: 85.3240 });
         
         // Clear file input
@@ -118,29 +136,7 @@ const ReportPage = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="relative flex-1 max-w-xl">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search people"
-                className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none"
-              />
-            </div>
-            <div className="flex items-center space-x-4">
-              <Bell size={24} className="text-gray-600" />
-              <div className="flex items-center space-x-2">
-                <img
-                  src="https://imgs.search.brave.com/HxsIMbItz_dQivtNgeLvbI7egmwxBXRKDd4oXXF0V6c/rs:fit:500:0:0:0/g:ce/aHR0cHM6Ly91cGxv/YWQud2lraW1lZGlh/Lm9yZy93aWtpcGVk/aWEvY29tbW9ucy90/aHVtYi9iL2I0L0xp/b25lbC1NZXNzaS1B/cmdlbnRpbmEtMjAy/Mi1GSUZBLVdvcmxk/LUN1cF8lMjhjcm9w/cGVkJTI5LmpwZy81/MTJweC1MaW9uZWwt/TWVzc2ktQXJnZW50/aW5hLTIwMjItRklG/QS1Xb3JsZC1DdXBf/JTI4Y3JvcHBlZCUy/OS5qcGc"
-                  alt="Profile"
-                  className="w-8 h-8 rounded-full"
-                />
-                <span className="font-medium">Kamesh</span>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Hearder/>
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6">
@@ -199,6 +195,16 @@ const ReportPage = () => {
                         onChange={handleFileChange}
                         className="w-full p-2 border rounded-lg focus:outline-none"
                       />
+                      {previewUrl && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600 mb-1">Preview:</p>
+                          <img 
+                            src={previewUrl} 
+                            alt="Preview" 
+                            className="h-32 object-cover rounded-lg border border-gray-200" 
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 

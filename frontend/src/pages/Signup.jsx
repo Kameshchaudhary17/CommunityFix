@@ -41,7 +41,7 @@ const SignupPage = () => {
 
       console.log(response)
       if(response)
-        navigate('/home')
+        navigate('/')
     } catch (error) {
       console.log(error)
     }
