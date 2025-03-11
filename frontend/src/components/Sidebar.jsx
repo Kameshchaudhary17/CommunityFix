@@ -62,11 +62,7 @@ const Sidebar = () => {
           ))}
         </ul>
       </nav>
-
-      {/* Submit Button */}
-      <button className="w-full bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 transition-colors duration-200 mt-4" >
-        Submit your Suggestion
-      </button>
+    
     </div>
   );
 };

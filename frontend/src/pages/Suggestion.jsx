@@ -303,7 +303,7 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
               </p>
             </div>
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(suggestion.status)}`}>
-              {suggestion.status || 'Submitted'}
+              {suggestion.status || 'Pending'}
             </span>
           </div>
           
@@ -345,7 +345,7 @@ const StatusFilter = ({ value, onChange }) => (
       onChange={onChange}
     >
       <option value="all">All Statuses</option>
-      <option value="submitted">Submitted</option>
+      <option value="submitted">Pending</option>
       <option value="in progress">In Progress</option>
       <option value="approved">Approved</option>
     </select>

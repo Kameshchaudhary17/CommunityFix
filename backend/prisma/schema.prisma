@@ -65,7 +65,7 @@ model Suggestion {
   id               Int       @id @default(autoincrement())
   title            String    @db.VarChar(255)
   description      String    @db.Text
-  status           Status    @default(SUBMITTED)
+  status           Status    @default(Pending)
   municipality     String    @db.VarChar(100)
   wardNumber       Int
 
@@ -110,7 +110,7 @@ model Upvote {
 }
 
 enum Status {
-  SUBMITTED
+  Pending
   IN_PROGRESS
   APPROVED
   REJECTED
