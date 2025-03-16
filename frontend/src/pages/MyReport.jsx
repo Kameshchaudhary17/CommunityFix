@@ -20,7 +20,7 @@ const StatusFilter = ({ value, onChange }) => {
   );
 };
 
-const Home = () => {
+const MyReport = () => {
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -315,4 +315,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default MyReport;

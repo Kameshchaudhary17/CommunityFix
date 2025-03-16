@@ -63,7 +63,6 @@ exports.createSuggestion = async (req, res) => {
   }
 };
 
-
 // Get all suggestions with filtering options
 exports.getSuggestions = async (req, res) => {
   try {
@@ -80,13 +79,26 @@ exports.getSuggestions = async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Municipality and Ward Number are required' });
     }
 
-    // Build filter object based on user’s municipality & wardNumber
+    // Build filter object based on user's municipality & wardNumber
     const filter = { 
       municipality: user.municipality, 
       wardNumber: user.wardNumber 
     };
 
-    if (status) filter.status = status;
+    if (status && status !== 'all') {
+      // Convert status to match the enum in the database (if needed)
+      let dbStatus = status;
+      if (status === 'submitted' || status === 'pending') {
+        dbStatus = 'Pending';
+      } else if (status === 'in progress') {
+        dbStatus = 'IN_PROGRESS';
+      } else if (status === 'approved') {
+        dbStatus = 'APPROVED';
+      } else if (status === 'rejected') {
+        dbStatus = 'REJECTED';
+      }
+      filter.status = dbStatus;
+    }
 
     // Add search functionality for title and description
     if (search) {
@@ -97,7 +109,7 @@ exports.getSuggestions = async (req, res) => {
     }
 
     // Calculate pagination values
-    const skip = (page - 1) * limit;
+    const skip = (page - 1) * parseInt(limit);
     const take = parseInt(limit);
 
     // Get total count for pagination
@@ -116,7 +128,16 @@ exports.getSuggestions = async (req, res) => {
           }
         },
         _count: {
-          select: { comments: true }
+          select: { 
+            comments: true,
+            upvotes: true
+          }
+        },
+        // Include comments count for each suggestion
+        comments: {
+          select: {
+            id: true
+          }
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -124,11 +145,29 @@ exports.getSuggestions = async (req, res) => {
       take
     });
 
-    // Transform data to include comment count
+    // Check which suggestions the current user has upvoted
+    const userUpvotes = userId ? await prisma.upvote.findMany({
+      where: {
+        userId,
+        suggestionId: {
+          in: suggestions.map(s => s.id)
+        }
+      },
+      select: {
+        suggestionId: true
+      }
+    }) : [];
+
+    const upvotedSuggestionIds = new Set(userUpvotes.map(u => u.suggestionId));
+
+    // Transform data to include comment count and upvote count
     const formattedSuggestions = suggestions.map(suggestion => ({
       ...suggestion,
       commentsCount: suggestion._count.comments,
-      _count: undefined
+      upvoteCount: suggestion._count.upvotes,
+      hasUserUpvoted: upvotedSuggestionIds.has(suggestion.id),
+      _count: undefined,
+      comments: undefined // Remove the comments array to reduce payload size
     }));
 
     res.status(200).json({
@@ -432,83 +471,91 @@ console.log(userId)
   }
 };
 
-
-// Function to fetch reports and suggestions for matching municipality and ward
-exports.fetchLocalContent = async (req, res) => {
+exports.getComments = async (req, res) => {
   try {
-    // Get user's municipality and ward from token authentication
-    const { municipality, wardNumber } = req.user;
+    const { id } = req.params;
     
-    // Validate that user has municipality and ward information
-    if (!municipality || !wardNumber) {
-      return res.status(400).json({ 
-        message: 'User profile is missing municipality or ward information' 
-      });
+    // Validate suggestion ID
+    const suggestionId = parseInt(id);
+    if (isNaN(suggestionId)) {
+      return res.status(400).json({ message: "Invalid suggestion ID" });
     }
 
-    // Fetch reports that match the user's municipality and ward
-    // const reports = await prisma.reports.findMany({
-    //   where: {
-    //     municipality: municipality,
-    //     wardNumber: wardNumber
-    //   },
-    //   include: {
-    //     user: {
-    //       select: {
-    //         user_name: true,
-    //         user_email: true
-    //       }
-    //     }
-    //   },
-    //   orderBy: {
-    //     createdAt: 'desc'
-    //   }
-    // });
-
-    // Fetch suggestions that match the user's municipality and ward
-    const suggestions = await prisma.suggestion.findMany({
-      where: {
-        municipality: municipality,
-        wardNumber: wardNumber
-      },
+    // Check if suggestion exists
+    const suggestion = await prisma.suggestion.findUnique({
+      where: { id: suggestionId }
+    });
+    
+    if (!suggestion) {
+      return res.status(404).json({ message: 'Suggestion not found' });
+    }
+    
+    // Get comments for the suggestion
+    const comments = await prisma.comment.findMany({
+      where: { suggestionId },
       include: {
         user: {
           select: {
             user_name: true,
-            user_email: true
+            user_id: true
           }
-        },
-        _count: {
-          select: { comments: true }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.status(200).json({ 
+      comments,
+      suggestion: {
+        id: suggestion.id,
+        title: suggestion.title
       }
     });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({ message: 'Failed to fetch comments', error: error.message });
+  }
+};
 
-    // Format suggestions to include comment count
-    const formattedSuggestions = suggestions.map(suggestion => ({
-      ...suggestion,
-      commentsCount: suggestion._count.comments,
-      _count: undefined
-    }));
-
-    // Return both reports and suggestions
-    res.status(200).json({
-      reports,
-      suggestions: formattedSuggestions,
-      userLocation: {
-        municipality,
-        wardNumber
+// Delete a comment
+exports.deleteComment = async (req, res) => {
+  try {
+    const { suggestionId, commentId } = req.params;
+    const userId = req.user.id; // From auth middleware
+    
+    // Convert IDs to integers
+    const parsedSuggestionId = parseInt(suggestionId);
+    const parsedCommentId = parseInt(commentId);
+    
+    if (isNaN(parsedSuggestionId) || isNaN(parsedCommentId)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+    
+    // Find the comment
+    const comment = await prisma.comment.findUnique({
+      where: { 
+        id: parsedCommentId,
+        suggestionId: parsedSuggestionId
       }
     });
     
-  } catch (error) {
-    console.error('Error fetching local content:', error);
-    res.status(500).json({ 
-      message: 'Failed to fetch local content', 
-      error: error.message 
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+    
+    // Check if user is the comment author or an admin
+    if (comment.userId !== userId && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'You do not have permission to delete this comment' });
+    }
+    
+    // Delete the comment
+    await prisma.comment.delete({
+      where: { id: parsedCommentId }
     });
+    
+    res.status(200).json({ message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ message: 'Failed to delete comment', error: error.message });
   }
 };

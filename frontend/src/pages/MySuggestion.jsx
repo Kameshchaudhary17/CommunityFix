@@ -413,7 +413,7 @@ const StatusFilter = ({ value, onChange }) => (
   </div>
 );
 
-const Suggestion = () => {
+const MySuggestion = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -634,4 +634,4 @@ const Suggestion = () => {
   );
 };
 
-export default Suggestion;
+export default MySuggestion;

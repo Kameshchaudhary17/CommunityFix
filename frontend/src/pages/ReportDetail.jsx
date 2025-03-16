@@ -343,15 +343,7 @@ const ReportDetail = () => {
                         }
                       </span>
                     </div>
-                    <div className="flex space-x-2">
-                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 transition">
-                        <MessageCircle size={16} />
-                        <span>Add Comment</span>
-                      </button>
-                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
-                        <span>Share Report</span>
-                      </button>
-                    </div>
+                    
                   </div>
                 </div>
 

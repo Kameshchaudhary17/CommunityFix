@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import loginImage from '../assets/photo/login.png'
-import axios from 'axios'
+import loginImage from '../assets/photo/login.png';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const SignupPage = () => {
@@ -13,37 +13,48 @@ const SignupPage = () => {
     confirmPassword: '',
     municipality: '',
     wardNumber: '',
-    photo: null
+    photo: null,
+    citizenshipPhoto: null,
   });
 
-   const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    setFormData(prev => ({
+    const { name, files } = e.target;
+    setFormData((prev) => ({
       ...prev,
-      photo: file
+      [name]: files[0],
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5555/api/auth/signup', formData);
+      const formDataToSend = new FormData();
+      for (const key in formData) {
+        formDataToSend.append(key, formData[key]);
+      }
 
-      console.log(response)
-      if(response)
-        navigate('/')
+      const response = await axios.post('http://localhost:5555/api/auth/signup', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log(response);
+      if (response) {
+        navigate('/');
+      }
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
   };
 
@@ -58,10 +69,10 @@ const SignupPage = () => {
           <h2 className="text-2xl md:text-3xl text-blue-700 font-bold text-center mb-8">
             Make Society Better
           </h2>
-          
+
           <div className="relative mb-8">
             <div className="w-full h-64 md:h-80 bg-teal-100 rounded-lg absolute opacity-30" />
-            <img 
+            <img
               src={loginImage}
               alt="World Map with People"
               className="w-full h-108 md:h-124 object-contain relative z-10"
@@ -84,6 +95,7 @@ const SignupPage = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Full Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Full Name</label>
               <input
@@ -96,6 +108,7 @@ const SignupPage = () => {
               />
             </div>
 
+            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Email</label>
               <input
@@ -108,6 +121,7 @@ const SignupPage = () => {
               />
             </div>
 
+            {/* Contact and Date of Birth */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Contact</label>
@@ -133,6 +147,7 @@ const SignupPage = () => {
               </div>
             </div>
 
+            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Password</label>
               <input
@@ -145,6 +160,7 @@ const SignupPage = () => {
               />
             </div>
 
+            {/* Confirm Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
               <input
@@ -157,6 +173,7 @@ const SignupPage = () => {
               />
             </div>
 
+            {/* Municipality and Ward Number */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Municipality</label>
@@ -182,26 +199,47 @@ const SignupPage = () => {
               </div>
             </div>
 
+            {/* Upload Photo */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Upload Photo</label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                <div className="space-y-1 text-center">
-                  <div className="flex text-sm text-gray-600">
-                    <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                      <span>Upload a file</span>
-                      <input
-                        type="file"
-                        name="photo"
-                        onChange={handleFileChange}
-                        className="sr-only"
-                        accept="image/*"
-                      />
-                    </label>
-                  </div>
-                </div>
+              <div className="mt-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm cursor-pointer hover:bg-gray-50 transition">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <span className="text-sm text-gray-600">Choose a file</span>
+                  <input
+                    type="file"
+                    name="photo"
+                    onChange={handleFileChange}
+                    className="sr-only"
+                    accept="image/*"
+                  />
+                </label>
               </div>
+              {formData.photo && (
+                <p className="mt-1 text-sm text-gray-500">{formData.photo.name}</p>
+              )}
             </div>
 
+            {/* Upload Citizenship Photo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Upload Citizenship Photo</label>
+              <div className="mt-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm cursor-pointer hover:bg-gray-50 transition">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <span className="text-sm text-gray-600">Choose a file</span>
+                  <input
+                    type="file"
+                    name="citizenshipPhoto"
+                    onChange={handleFileChange}
+                    className="sr-only"
+                    accept="image/*"
+                  />
+                </label>
+              </div>
+              {formData.citizenshipPhoto && (
+                <p className="mt-1 text-sm text-gray-500">{formData.citizenshipPhoto.name}</p>
+              )}
+            </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
               className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

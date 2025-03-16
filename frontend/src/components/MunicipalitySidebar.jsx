@@ -14,9 +14,9 @@ const MunicipalitySidebar = () => {
 
   const menuItems = [
     { icon: <LayoutGrid size={20} />, label: 'Dashboard', path: '/dashboard' },
-    { icon: <MessageSquare size={20} />, label: 'Report Management', path: '/report-management' },
+    { icon: <MessageSquare size={20} />, label: 'Report Management', path: '/reportmanagement' },
     { icon: <Lightbulb size={20} />, label: 'Manage Suggestion', path: '/suggestionmanagement' },
-    { icon: <Users size={20} />, label: 'User Management', path: '/user-management' },
+    { icon: <Users size={20} />, label: 'User Management', path: '/user' },
     { icon: <History size={20} />, label: 'History', path: '/history' },
     { icon: <LogOut size={20} />, label: 'Logout', path: '/logout' }
   ];
