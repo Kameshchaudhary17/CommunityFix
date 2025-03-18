@@ -13,7 +13,7 @@ const SignupPage = () => {
     confirmPassword: '',
     municipality: '',
     wardNumber: '',
-    photo: null,
+    profilePicture: null,
     citizenshipPhoto: null,
   });
 
@@ -37,27 +37,52 @@ const SignupPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+  
     try {
       const formDataToSend = new FormData();
-      for (const key in formData) {
-        formDataToSend.append(key, formData[key]);
+  
+      // Append all non-file fields
+      Object.keys(formData).forEach((key) => {
+        if (key !== "profilePicture" && key !== "citizenshipPhoto") {
+          formDataToSend.append(key, formData[key]);
+        }
+      });
+  
+      // Append photo file if exists
+      if (formData.profilePicture) {
+        formDataToSend.append("profilePicture", formData.profilePicture);
+      } else {
+        console.log("No photo selected");
       }
 
-      const response = await axios.post('http://localhost:5555/api/auth/signup', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      // Append citizenship photo file if exists
+      if (formData.citizenshipPhoto) {
+        formDataToSend.append("citizenshipPhoto", formData.citizenshipPhoto);
+      } else {
+        console.log("No citizenship photo selected");
+      }
+  
+      console.log("Form data being sent:");
+      for (let pair of formDataToSend.entries()) {
+        console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
+      }
+  
+      const response = await axios.post("http://localhost:5555/api/auth/signup", formDataToSend, {
+        headers: { 
+          "Content-Type": "multipart/form-data"
+        }
       });
-
-      console.log(response);
-      if (response) {
-        navigate('/');
+  
+      console.log("Server response:", response.data);
+      if (response.status === 201) {
+        navigate("/login");
       }
     } catch (error) {
-      console.log(error);
+      console.error("Error uploading file:", error.response?.data || error.message || error);
+      // You might want to show an error message to the user here
     }
   };
-
+  
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Section - Illustration */}
@@ -203,19 +228,19 @@ const SignupPage = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700">Upload Photo</label>
               <div className="mt-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm cursor-pointer hover:bg-gray-50 transition">
-                <label className="flex items-center space-x-2 cursor-pointer">
+                <label className="flex items-center space-x-2 cursor-pointer w-full">
                   <span className="text-sm text-gray-600">Choose a file</span>
                   <input
                     type="file"
-                    name="photo"
+                    name="profilePicture"
                     onChange={handleFileChange}
                     className="sr-only"
                     accept="image/*"
                   />
                 </label>
               </div>
-              {formData.photo && (
-                <p className="mt-1 text-sm text-gray-500">{formData.photo.name}</p>
+              {formData.profilePicture && (
+                <p className="mt-1 text-sm text-gray-500">{formData.profilePicture.name}</p>
               )}
             </div>
 
@@ -223,7 +248,7 @@ const SignupPage = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700">Upload Citizenship Photo</label>
               <div className="mt-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm cursor-pointer hover:bg-gray-50 transition">
-                <label className="flex items-center space-x-2 cursor-pointer">
+                <label className="flex items-center space-x-2 cursor-pointer w-full">
                   <span className="text-sm text-gray-600">Choose a file</span>
                   <input
                     type="file"

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios'
 import loginImage from '../assets/photo/login.png'
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'lucide-react';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -136,7 +137,7 @@ const LoginPage = () => {
             <div className="text-center">
               <span className="text-gray-600">Are you new? </span>
               <a 
-                href="#" 
+                href="/signup" 
                 className="text-green-600 hover:text-green-500"
               >
                 Create an Account

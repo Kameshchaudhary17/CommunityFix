@@ -11,10 +11,14 @@ app.use(express.json());
 
 app.use(
   cors({
-    methods: ["GET", "POST"], // methods allowed
+    origin: 'http://localhost:5173', // Allow requests from this origin
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicitly allow these methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allow these headers
     credentials: true,
   })
 );
+
+app.use(express.static('Storage'))
 
 // using route
 app.use("/api", routes);

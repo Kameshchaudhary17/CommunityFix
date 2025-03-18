@@ -41,17 +41,25 @@ model users {
 }
 
 model reports {
-  report_id     Int      @id @default(autoincrement())
-  title         String   @db.VarChar(255)
-  description   String   @db.Text
-  photo         String?  @db.VarChar(255) // Store image URL
-  municipality  String   @db.VarChar(100)
+  report_id     Int          @id @default(autoincrement())
+  title         String       @db.VarChar(255)
+  description   String       @db.Text
+  photo         String?      @db.VarChar(255) // Store image URL
+  municipality  String       @db.VarChar(100)
   wardNumber    Int
   latitude      Float
   longitude     Float
-  createdAt     DateTime @default(now())
+  status        ReportStatus @default(PENDING) // New status field
+  createdAt     DateTime     @default(now())
   user_id       Int
-  user          users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade) 
+  user          users        @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+}
+
+// New enum for report status
+enum ReportStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
 }
 
 // Enum for user roles
