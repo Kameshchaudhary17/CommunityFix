@@ -20,7 +20,7 @@ const Sidebar = () => {
     { icon: <BookMarked size={20} />, label: 'My Suggestion', path: '/mysuggestion' },
     { icon: <Info size={20} />, label: 'About Community Fix', path: '/about' },
     { icon: <History size={20} />, label: 'History', path: '/history' },
-    { icon: <LogOut size={20} />, label: 'Logout', path: '/logout' }
+    { icon: <LogOut size={20} />, label: 'Logout', path: '/login' }
   ];
 
   return (

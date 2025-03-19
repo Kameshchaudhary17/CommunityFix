@@ -317,54 +317,48 @@ const deleteUser = async (req, res) => {
 // Get users by municipality and ward number
 const getUsersByLocation = async (req, res) => {
     try {
-        const { municipality, wardNumber } = req.query;
-        
-        // Validate inputs
-        if (!municipality || !wardNumber) {
-            return res.status(400).json({ 
-                error: "Both municipality and wardNumber are required query parameters." 
-            });
+        const userId = req.user?.id;
+    
+        console.log("User ID:", userId);
+    
+        // Fetch user details to get municipality and wardNumber
+        const user = await prisma.users.findUnique({
+          where: { user_id: userId },
+          select: {
+            municipality: true,
+            wardNumber: true
+          }
+        });
+    
+        console.log("User Details:", user);
+    
+        if (!user || !user.municipality || user.wardNumber === null) {
+          return res.status(403).json({ message: 'Access denied: Municipality and Ward Number are required' });
         }
-
-        // Convert wardNumber to integer
-        const wardNum = parseInt(wardNumber);
-        
-        if (isNaN(wardNum)) {
-            return res.status(400).json({ error: "Ward number must be a valid integer." });
-        }
-
-        // Query users with matching municipality and ward number
+    
+        // Fetch users based on the user's municipality and wardNumber
         const users = await prisma.users.findMany({
-            where: {
-                municipality: municipality,
-                wardNumber: wardNum
-            },
-            select: {
-                user_id: true,
+          where: {
+            municipality: user.municipality,
+            wardNumber: user.wardNumber
+          },
+          include: {
+            user: {
+              select: {
                 user_name: true,
-                user_email: true,
-                contact: true,
-                role: true,
-                municipality: true,
-                wardNumber: true,
-                profilePicture: true,
-                isVerified: true,
-                isActive: true,
-                createdAt: true,
-                // Exclude password and other sensitive fields
+                user_email: true
+              }
             }
+          }
         });
-
-        return res.status(200).json({
-            message: "Users retrieved successfully.",
-            count: users.length,
-            users: users
-        });
-    } catch (error) {
-        console.error('Get users by location error:', error);
+    
+        return res.status(200).json({ users });
+      } catch (error) {
+        console.error('Fetch users error:', error);
         return res.status(500).json({ error: "Internal server error." });
-    }
-};
+      }
+    };
+    
 
 // Get current user's data
 const getCurrentUser = async (req, res) => {

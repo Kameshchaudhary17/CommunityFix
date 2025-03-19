@@ -18,7 +18,7 @@ const MunicipalitySidebar = () => {
     { icon: <Lightbulb size={20} />, label: 'Manage Suggestion', path: '/suggestionmanagement' },
     { icon: <Users size={20} />, label: 'User Management', path: '/user' },
     { icon: <History size={20} />, label: 'History', path: '/history' },
-    { icon: <LogOut size={20} />, label: 'Logout', path: '/logout' }
+    { icon: <LogOut size={20} />, label: 'Logout', path: '/login' }
   ];
 
   return (

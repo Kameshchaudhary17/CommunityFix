@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
 import { Home, Building2, LogOut } from 'lucide-react';
 
+
 const AdminSidebar = ({ onNavigate }) => {
-  const [activePath, setActivePath] = useState('/dashboard');
+  const [activePath, setActivePath] = useState('/admin');
 
   const menuItems = [
-    {
-      path: '/admin',
-      name: 'Dashboard',
-      icon: <Home className="w-5 h-5" />
-    },
-    {
-      path: '/register',
-      name: 'Manage Municipality',
-      icon: <Building2 className="w-5 h-5" />
-    }
-  ];
+      { icon: <Home size={20} />, name: 'Dashboard', path: '/admin' },
+      { icon: <Building2 size={20} />, name: 'Manage Municipality', path: '/register' },
+    ];
+  
 
   const handleNavigation = (path) => {
     setActivePath(path);

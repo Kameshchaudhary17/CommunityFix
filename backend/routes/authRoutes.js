@@ -11,7 +11,7 @@ const upload = multer({storage : storage})
 router.post('/signup', authController.uploadFields, authController.signupUser)
 router.post('/login', authController.loginUser)
 router.get('/getcurrentuser', authMiddleware.authenticateUser, authController.getCurrentUser)
-router.get('/getuserbylocation', authController.getUsersByLocation)
+router.get('/getuserbylocation', authMiddleware.authenticateUser, authController.getUsersByLocation)
 router.put('/users/:user_id', authController.uploadFields, authController.updateUser);
 router.delete('/users/:user_id', authController.deleteUser)
 
