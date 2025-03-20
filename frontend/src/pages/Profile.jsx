@@ -233,41 +233,6 @@ const Profile = () => {
     }
   };
 
-  // Helper function to handle successful responses
-  const handleSuccessResponse = (response) => {
-    if (response.data && (response.data.user || response.data.data)) {
-      const updatedUser = response.data.user || response.data.data;
-      
-      // Update the profile state with the returned data
-      setProfile(prevProfile => ({
-        ...prevProfile,
-        user_name: updatedUser.user_name || updatedUser.name || prevProfile.user_name,
-        user_email: updatedUser.user_email || updatedUser.email || prevProfile.user_email,
-        contact: updatedUser.contact || updatedUser.phone || prevProfile.contact,
-        municipality: updatedUser.municipality || prevProfile.municipality,
-        wardNumber: updatedUser.wardNumber || updatedUser.ward_no || prevProfile.wardNumber,
-        dateOfBirth: updatedUser.dateOfBirth || updatedUser.dob || prevProfile.dateOfBirth,
-        bio: updatedUser.bio || prevProfile.bio,
-        
-        // Handle image paths with appropriate URL construction
-        profilePicture: updatedUser.profilePicture ? 
-          (updatedUser.profilePicture.startsWith('http') ? updatedUser.profilePicture : `http://localhost:5555/${updatedUser.profilePicture}`) : 
-          prevProfile.profilePicture,
-          
-        citizenshipPhoto: updatedUser.citizenshipPhoto ? 
-          (updatedUser.citizenshipPhoto.startsWith('http') ? updatedUser.citizenshipPhoto : `http://localhost:5555/${updatedUser.citizenshipPhoto}`) : 
-          prevProfile.citizenshipPhoto,
-      }));
-      
-      setIsEditMode(false);
-      toast.success("Profile updated successfully!");
-    } else {
-      // Handle empty but successful response
-      setIsEditMode(false);
-      toast.success("Profile updated successfully!");
-    }
-  };
-
   const handleCancel = () => {
     setIsEditMode(false);
     setFormData({...profile});

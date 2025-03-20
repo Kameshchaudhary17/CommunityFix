@@ -79,7 +79,9 @@ const getAllReports = async (req, res) => {
         user: {
           select: {
             user_name: true,
-            user_email: true
+            user_email: true, 
+            contact: true,
+            profilePicture: true,
           }
         }
       }
@@ -105,7 +107,8 @@ const getReportById = async (req, res) => {
         user: {
           select: {
             user_name: true,
-            user_email: true
+            user_email: true, 
+            contact: true,
           }
         }
       }

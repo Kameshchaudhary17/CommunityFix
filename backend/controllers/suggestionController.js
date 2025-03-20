@@ -72,7 +72,7 @@ exports.getSuggestions = async (req, res) => {
     // Fetch user details to get municipality and wardNumber
     const user = await prisma.users.findUnique({
       where: { user_id: userId },
-      select: { municipality: true, wardNumber: true }
+      select: { municipality: true, wardNumber: true, profilePicture: true}
     });
 
     if (!user || !user.municipality || !user.wardNumber) {
@@ -247,7 +247,8 @@ exports.getSuggestionById = async (req, res) => {
             user_name: true,
             user_email: true,
             municipality: true,
-            wardNumber: true
+            wardNumber: true,
+            profilePicture: true
           }
         },
         comments: {

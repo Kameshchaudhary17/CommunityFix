@@ -13,7 +13,7 @@ const MunicipalitySidebar = () => {
   const [activeItem, setActiveItem] = useState('Dashboard');
 
   const menuItems = [
-    { icon: <LayoutGrid size={20} />, label: 'Dashboard', path: '/dashboard' },
+    { icon: <LayoutGrid size={20} />, label: 'Dashboard', path: '/municipality' },
     { icon: <MessageSquare size={20} />, label: 'Report Management', path: '/reportmanagement' },
     { icon: <Lightbulb size={20} />, label: 'Manage Suggestion', path: '/suggestionmanagement' },
     { icon: <Users size={20} />, label: 'User Management', path: '/user' },

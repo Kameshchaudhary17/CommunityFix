@@ -437,6 +437,8 @@ const Suggestion = () => {
           'Authorization': `Bearer ${token}`
         }
       });
+
+      console.log(response)
       
       console.log(response.data);
       if (response.data && response.data.suggestions) {

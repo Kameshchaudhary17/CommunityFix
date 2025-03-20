@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Eye, 
   Filter, 
@@ -14,65 +14,46 @@ import {
 import MunicipalitySidebar from '../components/MunicipalitySidebar';
 import Header from '../components/Header';
 import { toast, Toaster } from 'react-hot-toast';
+import axios from 'axios';
 
 const SuggestionManagement = () => {
   // Sample suggestion data
-  const [suggestions, setSuggestions] = useState([
-    {
-      id: 1,
-      title: "Clean Environment",
-      description: "Proposal to organize community cleanup drives in local parks and streets",
-      submittedDate: "2024/12/12",
-      status: "Pending",
-      lastUpdate: "2024/12/12",
-      upvoteCount: 100
-    },
-    {
-      id: 2,
-      title: "Broken Road",
-      description: "Repair request for the damaged road near the central market area",
-      submittedDate: "2024/12/12",
-      status: "Pending",
-      lastUpdate: "2024/12/12",
-      upvoteCount: 100
-    },
-    {
-      id: 3,
-      title: "Street Lights",
-      description: "Installation of additional street lights in the northern residential area",
-      submittedDate: "2024/12/10",
-      status: "Pending",
-      lastUpdate: "2024/12/15",
-      upvoteCount: 85
-    },
-    {
-      id: 4,
-      title: "Public Transport Improvement",
-      description: "Suggestion to increase frequency of public buses during peak hours",
-      submittedDate: "2024/12/08",
-      status: "In_Progress",
-      lastUpdate: "2024/12/14",
-      upvoteCount: 92
-    },
-    {
-      id: 5,
-      title: "Community Garden",
-      description: "Proposal to convert unused land near community center into a shared garden",
-      submittedDate: "2024/12/05",
-      status: "Approved",
-      lastUpdate: "2024/12/11",
-      upvoteCount: 78
-    },
-    {
-      id: 6,
-      title: "Youth Sports Program",
-      description: "Request to implement weekend sports activities for youth at local playground",
-      submittedDate: "2024/12/09",
-      status: "Rejected",
-      lastUpdate: "2024/12/13",
-      upvoteCount: 45
+  const [suggestions, setSuggestions] = useState([]);
+const [loading, setLoading] = useState(false)
+const [error, setError] = useState("")
+
+
+const token = localStorage.getItem('token');
+
+  const fetchSuggestions = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get('http://localhost:5555/api/suggestion/getSuggestion', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log(response)
+      
+      console.log(response.data);
+      if (response.data && response.data.suggestions) {
+        setSuggestions(response.data.suggestions);
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      setError('Failed to load suggestions. Please try again.');
+      toast.error('Failed to load suggestions');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+   useEffect(() => {
+      fetchSuggestions();
+    }, []);
+
 
   // State for filters and sorting
   const [activeFilter, setActiveFilter] = useState('all');

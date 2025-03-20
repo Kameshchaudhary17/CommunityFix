@@ -32,73 +32,42 @@ L.Icon.Default.mergeOptions({
 const ReportManagement = () => {
   // Sample reports data - in a real app, you would fetch this from an API
   const [reports, setReports] = useState([
-    {
-      id: 'RPT-1001',
-      title: 'Pothole on Main Street',
-      description: 'Large pothole causing traffic issues and potential vehicle damage. Located near the intersection with Oak Avenue.',
-      status: 'Pending',
-      reportDate: '2023-09-15',
-      upvotes: 15,
-      location: {
-        latitude: 27.7172,
-        longitude: 85.3240,
-        address: 'Main Street, Near Oak Avenue Intersection'
-      },
-      photos: [
-        "/api/placeholder/800/600",
-        "/api/placeholder/800/600"
-      ],
-      reporter: {
-        name: 'John Doe',
-        contact: '+977 9812345678',
-        email: 'johndoe@example.com'
-      }
-    },
-    {
-      id: 'RPT-1004',
-      title: 'Fallen Tree Blocking Road',
-      description: 'Large tree has fallen across the road after the recent storm, completely blocking traffic in both directions.',
-      status: 'Pending',
-      reportDate: '2023-09-18',
-      upvotes: 24,
-      location: {
-        latitude: 27.7193,
-        longitude: 85.3150,
-        address: 'Forest Avenue, Near Municipal Building'
-      },
-      photos: [
-        "/api/placeholder/800/600",
-        "/api/placeholder/800/600"
-      ],
-      reporter: {
-        name: 'Sarah Williams',
-        contact: '+977 9854321098',
-        email: 'sarah@example.com'
-      }
-    },
-    {
-      id: 'RPT-1005',
-      title: 'Water Leakage from Main Pipe',
-      description: 'Water constantly leaking from municipal water pipe causing water wastage and road damage.',
-      status: 'In Progress',
-      reportDate: '2023-09-05',
-      upvotes: 8,
-      location: {
-        latitude: 27.7114,
-        longitude: 85.3133,
-        address: 'Water Works Road, Behind Shopping Complex'
-      },
-      photos: [
-        "/api/placeholder/800/600"
-      ],
-      reporter: {
-        name: 'Robert Brown',
-        contact: '+977 9812345678',
-        email: 'robert@example.com'
-      }
-    }
   ]);
 
+
+  useEffect(() => {
+    // Load upvoted reports from localStorage
+    const savedUpvotes = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
+
+    
+    const fetchReports = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch('http://localhost:5555/api/report/getReport', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch reports');
+        }
+
+        const data = await response.json();
+        setReports(data.reports || []);
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error fetching reports:', err);
+        setError(err.message);
+        setIsLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, []);
   // State for search, filters, and sorting
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -375,7 +344,7 @@ const ReportManagement = () => {
                       <tr key={report.id} className="hover:bg-gray-50">
                         {/* ID */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {report.id}
+                          {report.report_id}
                         </td>
                         
                         {/* Title */}
@@ -559,15 +528,15 @@ const ReportManagement = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-gray-500">Name:</span>
-                      <span className="ml-2 text-gray-900">{selectedReport.reporter.name}</span>
+                      <span className="ml-2 text-gray-900">{selectedReport.user.user_name}</span>
                     </div>
                     <div>
                       <span className="text-gray-500">Contact:</span>
-                      <span className="ml-2 text-gray-900">{selectedReport.reporter.contact}</span>
+                      <span className="ml-2 text-gray-900">{selectedReport?.user?.contact || "--"}</span>
                     </div>
                     <div>
                       <span className="text-gray-500">Email:</span>
-                      <span className="ml-2 text-gray-900">{selectedReport.reporter.email}</span>
+                      <span className="ml-2 text-gray-900">{selectedReport.user.user_email}</span>
                     </div>
                   </div>
                 </div>
@@ -577,17 +546,17 @@ const ReportManagement = () => {
                   <div className="bg-gray-50 p-4 rounded-lg mb-3">
                     <div className="flex items-start mb-2">
                       <MapPin className="h-5 w-5 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-gray-600">{selectedReport.location.address}</p>
+                      <p className="text-sm text-gray-600">{selectedReport.municipality + " " + selectedReport.wardNumber }</p>
                     </div>
                     <div className="text-xs text-gray-500">
-                      Coordinates: {selectedReport.location.latitude}, {selectedReport.location.longitude}
+                      Coordinates: {selectedReport.latitude}, {selectedReport.longitude}
                     </div>
                   </div>
                   
                   {/* Leaflet Map */}
                   <div className="h-64 rounded-lg overflow-hidden border border-gray-200">
                     <MapContainer 
-                      center={[selectedReport.location.latitude, selectedReport.location.longitude]} 
+                      center={[selectedReport.latitude, selectedReport.longitude]} 
                       zoom={14} 
                       style={{ height: '100%', width: '100%' }}
                       scrollWheelZoom={false}
@@ -596,11 +565,11 @@ const ReportManagement = () => {
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                       />
-                      <Marker position={[selectedReport.location.latitude, selectedReport.location.longitude]}>
+                      <Marker position={[selectedReport.latitude, selectedReport.longitude]}>
                         <Popup>
                           <div className="text-sm">
                             <p className="font-medium">{selectedReport.title}</p>
-                            <p>{selectedReport.location.address}</p>
+                            <p>{selectedReport.municipality + " " + selectedReport.wardNumber}</p>
                           </div>
                         </Popup>
                       </Marker>
@@ -610,8 +579,8 @@ const ReportManagement = () => {
 
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Photos</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {selectedReport.photos.map((photo, index) => (
+                  {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {selectedReport.photo.map((photo, index) => (
                       <div key={index} className="rounded-lg overflow-hidden border border-gray-200">
                         <img 
                           src={photo} 
@@ -620,14 +589,14 @@ const ReportManagement = () => {
                         />
                       </div>
                     ))}
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
 
             <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
               <button
-                onClick={() => handleUpvote(selectedReport.id)}
+                onClick={() => handleUpvote(selectedReport.report_id)}
                 className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <ThumbsUp className="mr-1.5 h-4 w-4" />

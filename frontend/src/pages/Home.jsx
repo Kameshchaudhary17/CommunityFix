@@ -129,6 +129,8 @@ const Home = () => {
     }
   };
 
+
+  console.log(reports)
   const viewReportDetail = (reportId) => {
     navigate(`/reportdetail/${reportId}`);
   };
@@ -220,9 +222,9 @@ const Home = () => {
                     <div className="p-5">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
-                          {report.photo ? (
+                          {report.user.profilePicture ? (
                             <img
-                              src={report.photo}
+                              src={`http://localhost:5555/${report.user.profilePicture}`}
                               alt={report.title}
                               className="w-12 h-12 rounded-full object-cover border border-gray-200"
                             />
