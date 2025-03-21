@@ -261,11 +261,41 @@ const getUserReports = async (req, res) => {
   }
 };
 
+// Controller function to get a single user report by ID
+const getSingleUserReport = async (req, res) => {
+  
+  
+  try {
+    
+    
+    // Fetch the specific report that belongs to the user
+    const report = await prisma.reports.findFirst({
+      where: { 
+        user_id: req.user.id  // Ensure the report belongs to the requesting user
+      },include:{
+        user: true
+
+      }
+    });
+    
+    // Check if report exists
+    if (!report) {
+      return res.status(404).json({ error: "Report not found or you don't have permission to access it" });
+    }
+    
+    return res.status(200).json({ report });
+  } catch (error) {
+    console.error('Fetch single user report error:', error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
 module.exports = {
   createReport,
   getAllReports,
   getReportById,
   updateReport,
   deleteReport,
-  getUserReports
+  getUserReports,
+  getSingleUserReport
 };

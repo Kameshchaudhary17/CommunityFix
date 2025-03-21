@@ -8,7 +8,7 @@ const SignupPage = () => {
     user_name: '',
     user_email: '',
     contact: '',
-    dateOfBirth: '',
+    dob: '',
     password: '',
     confirmPassword: '',
     municipality: '',
@@ -163,8 +163,8 @@ const SignupPage = () => {
                 <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
                 <input
                   type="date"
-                  name="dateOfBirth"
-                  value={formData.dateOfBirth}
+                  name="dob"
+                  value={formData.dob}
                   onChange={handleInputChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   required

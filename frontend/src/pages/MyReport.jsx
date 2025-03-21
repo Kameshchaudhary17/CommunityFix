@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, ThumbsUp, Calendar, Eye, SortDesc } from 'lucide-react';
+import axios from 'axios'; // Add this import
 import Sidebar from '../components/Sidebar';
 import Hearder from '../components/Header';
 import { useNavigate } from 'react-router-dom';
 
-// Missing StatusFilter component
+// StatusFilter component
 const StatusFilter = ({ value, onChange }) => {
   return (
     <select 
@@ -25,10 +26,12 @@ const MyReport = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [upvotedReports, setUpvotedReports] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('all'); // Added missing state
-  const [searchQuery, setSearchQuery] = useState(''); // Added missing state
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
+  console.log(reports);
+  
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending':
@@ -61,27 +64,33 @@ const MyReport = () => {
     setUpvotedReports(savedUpvotes);
     
     const fetchReports = async () => {
+      setIsLoading(true);
+      setError(null);
+      
       try {
         const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Authentication required');
+        }
         
-        const response = await fetch('http://localhost:5555/api/report/getReport', {
-          method: 'GET',
+        const response = await axios.get('http://localhost:5555/api/report/getsinglereport', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch reports');
+        // Check if response.data.report exists and set it to state
+        if (response.data && response.data.report) {
+          setReports(Array.isArray(response.data.report) ? response.data.report : [response.data.report]);
+        } else {
+          // If no reports found, set empty array
+          setReports([]);
         }
-
-        const data = await response.json();
-        setReports(data.reports || []);
-        setIsLoading(false);
       } catch (err) {
         console.error('Error fetching reports:', err);
-        setError(err.message);
+        setError(err.response?.data?.error || err.message || 'Failed to fetch reports');
+      } finally {
         setIsLoading(false);
       }
     };
@@ -98,18 +107,13 @@ const MyReport = () => {
     try {
       const token = localStorage.getItem('token');
       
-      // Call your API to record the upvote
-      const response = await fetch(`http://localhost:5555/api/report/upvote/${reportId}`, {
-        method: 'POST',
+      // Call your API to record the upvote using axios
+      const response = await axios.post(`http://localhost:5555/api/report/upvote/${reportId}`, {}, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to upvote');
-      }
       
       // Update local state for upvotes
       const newUpvotedReports = [...upvotedReports, reportId];
@@ -159,15 +163,16 @@ const MyReport = () => {
     );
   }
 
-  // Fixed: reports instead of report
-  const filteredSuggestions = reports.filter(report => {
-    const matchesStatus = statusFilter === 'all' || 
-                          (report.status?.toLowerCase() === statusFilter.toLowerCase());
-    const matchesSearch = !searchQuery || 
-                          report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          report.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredSuggestions = Array.isArray(reports) 
+    ? reports.filter(report => {
+        const matchesStatus = statusFilter === 'all' || 
+                            (report.status?.toLowerCase() === statusFilter.toLowerCase());
+        const matchesSearch = !searchQuery || 
+                            report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            report.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesStatus && matchesSearch;
+      })
+    : [];
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -239,7 +244,7 @@ const MyReport = () => {
                               <span className="mx-2 text-gray-300">•</span>
                               <span className="text-gray-500 text-sm flex items-center">
                                 <Calendar size={14} className="mr-1" />
-                                {new Date(report.created_at).toLocaleDateString()}
+                                {new Date(report.createdAt).toLocaleDateString()}
                               </span>
                             </div>
                             

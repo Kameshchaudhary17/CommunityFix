@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc } from 'lucide-react';
+import {Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc, MoreVertical, Edit, Trash2, } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import Hearder from '../components/Header';
 import axios from 'axios';
@@ -332,7 +332,12 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
 };
 
 // Suggestion card component
-const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
+const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDelete }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [updatedTitle, setUpdatedTitle] = useState(suggestion.title);
+  const [updatedDescription, setUpdatedDescription] = useState(suggestion.description);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'submitted': return 'bg-blue-100 text-blue-700';
@@ -343,55 +348,177 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
     }
   };
 
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
+  };
+
+  const handleUpdateClick = () => {
+    setMenuOpen(false);
+    setShowUpdateForm(true);
+  };
+
+  const handleDeleteClick = () => {
+    setMenuOpen(false);
+    onDelete(suggestion.id);
+  };
+
+  const handleUpdateSubmit = (e) => {
+    e.preventDefault();
+    onUpdate(suggestion.id, {
+      title: updatedTitle,
+      description: updatedDescription
+    });
+    setShowUpdateForm(false);
+  };
+
+  const handleCancel = () => {
+    setUpdatedTitle(suggestion.title);
+    setUpdatedDescription(suggestion.description);
+    setShowUpdateForm(false);
+  };
+
   return (
     <div className="bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
-      <div className="flex items-start">
-        <div className="h-12 w-12 rounded-full overflow-hidden mr-3 flex-shrink-0 border-2 border-gray-200">
-          <img 
-            src="/api/placeholder/80/80" 
-            alt={suggestion.user?.user_name || 'User'} 
-            className="h-full w-full object-cover" 
-          />
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-semibold text-lg">{suggestion.title}</h3>
-              <p className="text-sm text-gray-500">
-                {suggestion.user?.user_name || 'Anonymous'} • {new Date(suggestion.createdAt).toLocaleDateString()}
-              </p>
+      {showUpdateForm ? (
+        <div className="update-form">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-semibold text-lg">Update Suggestion</h3>
+            <button 
+              className="text-gray-500 hover:text-gray-700"
+              onClick={handleCancel}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          
+          <form onSubmit={handleUpdateSubmit}>
+            <div className="mb-4">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                value={updatedTitle}
+                onChange={(e) => setUpdatedTitle(e.target.value)}
+                required
+              />
             </div>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(suggestion.status)}`}>
-              {suggestion.status || 'Pending'}
-            </span>
-          </div>
-          
-          <p className="text-gray-700 my-2">{suggestion.description}</p>
-          
-          <div className="text-xs text-gray-500 mb-3">
-            {suggestion.municipality}, Ward {suggestion.wardNumber}
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <button 
-              className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
-              onClick={() => onUpvote(suggestion)}
-            >
-              <ThumbsUp size={16} className={`mr-1 ${suggestion.hasUserUpvoted ? 'fill-current' : ''}`} />
-              <span>{suggestion.upvoteCount || 0}</span>
-            </button>
             
-            <button 
-              className="flex items-center text-gray-500 hover:text-blue-600"
-              onClick={() => onCommentClick(suggestion)}
-            >
-              <MessageSquare size={16} className="mr-1" />
-              <span>{suggestion.commentsCount || suggestion._count?.comments || 0}</span>
-            </button>
+            <div className="mb-4">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <textarea
+                id="description"
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 min-h-24"
+                value={updatedDescription}
+                onChange={(e) => setUpdatedDescription(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={handleCancel}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div className="flex items-start">
+          <div className="h-12 w-12 rounded-full overflow-hidden mr-3 flex-shrink-0 border-2 border-gray-200">
+            <img
+              src="/api/placeholder/80/80"
+              alt={suggestion.user?.user_name || 'User'}
+              className="h-full w-full object-cover"
+            />
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-semibold text-lg">{suggestion.title}</h3>
+                <p className="text-sm text-gray-500">
+                  {suggestion.user?.user_name || 'Anonymous'} • {new Date(suggestion.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(suggestion.status)}`}>
+                  {suggestion.status || 'Pending'}
+                </span>
+                
+                <div className="relative">
+                  <button 
+                    className="p-1 rounded-full hover:bg-gray-100"
+                    onClick={toggleMenu}
+                    aria-label="More options"
+                  >
+                    <MoreVertical size={16} className="text-gray-500" />
+                  </button>
+                  
+                  {menuOpen && (
+                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                      <div className="py-1">
+                        <button
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={handleUpdateClick}
+                        >
+                          <Edit size={14} className="mr-2" />
+                          Update
+                        </button>
+                        <button
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                          onClick={handleDeleteClick}
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-gray-700 my-2">{suggestion.description}</p>
+            
+            <div className="text-xs text-gray-500 mb-3">
+              {suggestion.municipality}, Ward {suggestion.wardNumber}
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <button
+                className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                onClick={() => onUpvote(suggestion)}
+              >
+                <ThumbsUp size={16} className={`mr-1 ${suggestion.hasUserUpvoted ? 'fill-current' : ''}`} />
+                <span>{suggestion.upvoteCount || 0}</span>
+              </button>
+              
+              <button
+                className="flex items-center text-gray-500 hover:text-blue-600"
+                onClick={() => onCommentClick(suggestion)}
+              >
+                <MessageSquare size={16} className="mr-1" />
+                <span>{suggestion.commentsCount || suggestion._count?.comments || 0}</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -413,7 +540,7 @@ const StatusFilter = ({ value, onChange }) => (
   </div>
 );
 
-const MySuggestion = () => {
+const Suggestion = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -427,29 +554,39 @@ const MySuggestion = () => {
   useEffect(() => {
     fetchSuggestions();
   }, []);
-  
+
+  // const user = JSON.parse(localStorage.getItem('user'));
+  // console.log(user)
+
   const fetchSuggestions = async () => {
+
     setLoading(true);
     setError(null);
+
     try {
-      const response = await axios.get('http://localhost:5555/api/suggestion/getSuggestion', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+        const response = await axios.get(`http://localhost:5555/api/suggestion/getusersuggestion`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        console.log(response.data);
+
+        if (response.data && response.data.suggestions) {
+            setSuggestions(response.data.suggestions);
+        } else {
+            setError('No suggestion found.');
         }
-      });
-      
-      console.log(response.data);
-      if (response.data && response.data.suggestions) {
-        setSuggestions(response.data.suggestions);
-      }
     } catch (error) {
-      console.error('Error fetching suggestions:', error);
-      setError('Failed to load suggestions. Please try again.');
-      toast.error('Failed to load suggestions');
+        console.error('Error fetching suggestion:', error);
+        setError('Failed to load suggestion. Please try again.');
+        toast.error('Failed to load suggestion');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
+
+
   
   const handleCommentClick = (suggestion) => {
     setSelectedSuggestion(suggestion);
@@ -605,18 +742,7 @@ const MySuggestion = () => {
                     Try Again
                   </button>
                 </div>
-              ) : filteredSuggestions.length === 0 ? (
-                <div className="bg-white rounded-lg p-10 text-center">
-                  <p className="text-gray-500 mb-6">No suggestions found</p>
-                  <button 
-                    onClick={() => setIsNewSuggestionOpen(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-flex items-center"
-                  >
-                    <Plus size={18} className="mr-1" />
-                    Create Your First Suggestion
-                  </button>
-                </div>
-              ) : (
+              ): (
                 filteredSuggestions.map(suggestion => (
                   <SuggestionCard 
                     key={suggestion.id} 
@@ -634,4 +760,4 @@ const MySuggestion = () => {
   );
 };
 
-export default MySuggestion;
+export default Suggestion;

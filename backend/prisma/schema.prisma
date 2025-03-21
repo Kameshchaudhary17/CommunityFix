@@ -18,17 +18,20 @@ model users {
   // Municipality-specific fields (nullable for regular users)
   municipality     String?   @db.VarChar(100)
   wardNumber       Int?
-  
+
   // Profile images
   profilePicture   String?   @db.VarChar(255)
   citizenshipPhoto String?   @db.VarChar(255)
-  
+
   // Verification fields
   otp              String?
   otp_expiry       DateTime?
-  isVerified       Boolean?  @default(false)
+  isVerified       VerificationStatus @default(PENDING) // Updated to ENUM
   isActive         Boolean   @default(true)
-  
+
+  // Date of Birth field
+  dob              DateTime?  // Stores user's date of birth
+
   // Relations
   reports          reports[]
   suggestions      Suggestion[]
@@ -39,6 +42,21 @@ model users {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
+
+// ENUM for isVerified
+enum VerificationStatus {
+  PENDING
+  ACCEPT
+  REJECT
+}
+
+// Enum for user roles
+enum UserRole {
+  USER
+  MUNICIPALITY
+  ADMIN
+}
+
 
 model reports {
   report_id     Int          @id @default(autoincrement())
@@ -60,13 +78,6 @@ enum ReportStatus {
   PENDING
   IN_PROGRESS
   COMPLETED
-}
-
-// Enum for user roles
-enum UserRole {
-  USER
-  MUNICIPALITY
-  ADMIN
 }
 
 model Suggestion {

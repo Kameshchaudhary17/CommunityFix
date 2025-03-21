@@ -3,7 +3,6 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 // Create a new suggestion
-
 exports.createSuggestion = async (req, res) => {
   try {
     const { title, description, municipality, wardNumber } = req.body;
@@ -62,6 +61,53 @@ exports.createSuggestion = async (req, res) => {
     res.status(500).json({ message: "Failed to create suggestion", error: error.message });
   }
 };
+
+exports.getUserSuggestions = async (req, res) => {
+  try {
+      const  userId  = req.user.id; // Get userId from authenticated user
+
+      if (!userId || isNaN(userId)) {
+          return res.status(400).json({ message: 'Invalid User ID' });
+      }
+
+      // Fetch suggestions where userId matches
+      const suggestions = await prisma.suggestion.findMany({
+          where: { userId: parseInt(userId) },
+          include: {
+              user: {
+                  select: {
+                      user_name: true,
+                      user_email: true,
+                      municipality: true,
+                      wardNumber: true,
+                      profilePicture: true
+                  }
+              },
+              comments: {
+                  include: {
+                      user: {
+                          select: {
+                              user_name: true
+                          }
+                      }
+                  },
+                  orderBy: { createdAt: 'desc' }
+              }
+          }
+      });
+
+      if (!suggestions.length) {
+          return res.status(404).json({ message: 'No suggestions found for this user' });
+      }
+
+      res.status(200).json({ suggestions });
+  } catch (error) {
+      console.error('Error fetching user suggestions:', error);
+      res.status(500).json({ message: 'Failed to fetch suggestions', error: error.message });
+  }
+};
+
+
 
 // Get all suggestions with filtering options
 exports.getSuggestions = async (req, res) => {
@@ -237,43 +283,49 @@ exports.getSimilarSuggestions = async (req, res) => {
 // Get a single suggestion by ID
 exports.getSuggestionById = async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    const suggestion = await prisma.suggestion.findUnique({
-      where: { id: parseInt(id) },
-      include: {
-        user: {
-          select: {
-            user_name: true,
-            user_email: true,
-            municipality: true,
-            wardNumber: true,
-            profilePicture: true
-          }
-        },
-        comments: {
-          include: {
-            user: {
-              select: {
-                user_name: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        }
+      const { id } = req.params;
+
+      // Validate ID
+      if (!id || isNaN(id)) {
+          return res.status(400).json({ message: 'Invalid ID provided' });
       }
-    });
-    
-    if (!suggestion) {
-      return res.status(404).json({ message: 'Suggestion not found' });
-    }
-    
-    res.status(200).json({ suggestion });
+
+      const suggestion = await prisma.suggestion.findUnique({
+          where: { id: parseInt(id) },
+          include: {
+              user: {
+                  select: {
+                      user_name: true,
+                      user_email: true,
+                      municipality: true,
+                      wardNumber: true,
+                      profilePicture: true
+                  }
+              },
+              comments: {
+                  include: {
+                      user: {
+                          select: {
+                              user_name: true
+                          }
+                      }
+                  },
+                  orderBy: { createdAt: 'desc' }
+              }
+          }
+      });
+
+      if (!suggestion) {
+          return res.status(404).json({ message: 'Suggestion not found' });
+      }
+
+      res.status(200).json({ suggestion });
   } catch (error) {
-    console.error('Error fetching suggestion:', error);
-    res.status(500).json({ message: 'Failed to fetch suggestion', error: error.message });
+      console.error('Error fetching suggestion:', error);
+      res.status(500).json({ message: 'Failed to fetch suggestion', error: error.message });
   }
 };
+
 
 // Update a suggestion
 exports.updateSuggestion = async (req, res) => {

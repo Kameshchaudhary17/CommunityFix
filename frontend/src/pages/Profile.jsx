@@ -22,10 +22,9 @@ const Profile = () => {
     contact: "",
     municipality: "",
     wardNumber: "",
-    dateOfBirth: "",
+    dob: "",
     profilePicture: "/api/placeholder/400/400",
     citizenshipPhoto: "/api/placeholder/400/400",
-    bio: ""
   });
   
   // Form state for editing
@@ -69,7 +68,7 @@ const Profile = () => {
             contact: user.contact || "",
             municipality: user.municipality || "",
             wardNumber: user.wardNumber || "",
-            dateOfBirth: user.dateOfBirth || "",
+            dob: user.dob || "",
             profilePicture: user.profilePicture ? `http://localhost:5555/${user.profilePicture}` : "/api/placeholder/400/400",
             citizenshipPhoto: user.citizenshipPhoto ? `http://localhost:5555/${user.citizenshipPhoto}` : "/api/placeholder/400/400",
             bio: user.bio || "",
@@ -86,7 +85,7 @@ const Profile = () => {
             contact: user.contact || "",
             municipality: user.municipality || "",
             wardNumber: user.wardNumber || "",
-            dateOfBirth: user.dateOfBirth || "",
+            dob: user.dob || "",
             profilePicture: user.profilePicture ? `http://localhost:5555/${user.profilePicture}` : "/api/placeholder/400/400",
             citizenshipPhoto: user.citizenshipPhoto ? `http://localhost:5555/${user.citizenshipPhoto}` : "/api/placeholder/400/400",
             bio: user.bio || "",
@@ -127,7 +126,7 @@ const Profile = () => {
       updateFormData.append('contact', formData.contact);
       updateFormData.append('municipality', formData.municipality);
       updateFormData.append('wardNumber', formData.wardNumber);
-      updateFormData.append('dateOfBirth', formData.dateOfBirth);
+      updateFormData.append('dob', formData.dob);
       updateFormData.append('bio', formData.bio || '');
 
       // Add file uploads if they exist
@@ -187,7 +186,7 @@ const Profile = () => {
           contact: updatedUser.contact || prevProfile.contact,
           municipality: updatedUser.municipality || prevProfile.municipality,
           wardNumber: updatedUser.wardNumber || prevProfile.wardNumber,
-          dateOfBirth: updatedUser.dateOfBirth || prevProfile.dateOfBirth,
+          dob: updatedUser.dob || prevProfile.dob,
           bio: updatedUser.bio || prevProfile.bio,
           
           // Handle image paths correctly
@@ -487,15 +486,15 @@ const Profile = () => {
                         </label>
                         {isEditMode ? (
                           <input
-                            type="date"
-                            name="dateOfBirth"
-                            value={formData.dateOfBirth}
+                            type="dob"
+                            name="dob"
+                            value={formData.dob}
                             onChange={handleInputChange}
                             className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         ) : (
                           <p className="font-medium text-gray-800">
-                            {profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('en-US', {
+                            {profile.dob ? new Date(profile.dob).toLocaleDateString('en-US', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric'

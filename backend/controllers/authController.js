@@ -26,18 +26,16 @@ const uploadFields = upload.fields([
 
 const loginUser = async (req, res) => {
     const { user_email, password } = req.body;
-    
+
     // Validate input
     if (!user_email || !password) {
         return res.status(400).json({ error: "Please enter all the details." });
     }
-    
+
     try {
         // Find user by email
-        const user = await prisma.users.findFirst({ 
-            where: { 
-                user_email 
-            } 
+        const user = await prisma.users.findFirst({
+            where: { user_email }
         });
 
         // Check if user exists
@@ -45,16 +43,16 @@ const loginUser = async (req, res) => {
             return res.status(404).json({ error: "User not found." });
         }
 
-        // Check account verification for regular users
-        if (user.role === 'USER' && !user.isVerified) {
-            return res.status(403).json({ error: "Sorry, your account is not verified yet!" });
+        // Check if account is verified
+        if (user.isVerified === "PENDING") {
+            return res.status(403).json({ error: "Your account is pending verification. Please wait for approval." });
         }
 
         // Check if account is active
         if (!user.isActive) {
             return res.status(403).json({ error: "Your account has been deactivated." });
         }
-        
+
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
@@ -63,28 +61,29 @@ const loginUser = async (req, res) => {
 
         // Generate a token
         const token = jwt.sign(
-            { 
-                id: user.user_id, 
-                role: user.role 
+            {
+                id: user.user_id,
+                role: user.role
             },
-            process.env.JWT_SECRET || "THIS_IS_MY_SECRET_KEY",  
-            { expiresIn: '24h' }     
+            process.env.JWT_SECRET || "THIS_IS_MY_SECRET_KEY",
+            { expiresIn: '24h' }
         );
 
         // Remove sensitive information before sending
-        const { password: userPassword, ...userWithoutPassword } = user;
+        const { password: _, otp, otp_expiry, ...userWithoutSensitiveData } = user;
 
         // User authenticated
         return res.status(200).json({
             message: "User logged in successfully.",
-            user: userWithoutPassword,
-            token: token
+            user: userWithoutSensitiveData,
+            token
         });
     } catch (error) {
-        console.error('Login error:', error);
+        console.error("Login error:", error);
         return res.status(500).json({ error: "Internal server error." });
     }
 };
+
 
 // Note: The signupUser function now receives req and res after multer processes the files
 const signupUser = async (req, res) => {
@@ -96,7 +95,8 @@ const signupUser = async (req, res) => {
             role = 'USER',
             contact,
             municipality,
-            wardNumber
+            wardNumber,
+            dob
         } = req.body;
 
         // Validate required fields
@@ -117,7 +117,6 @@ const signupUser = async (req, res) => {
 
         // Check if user already exists
         const oldUser = await prisma.users.findFirst({ where: { user_email } });
-        
         if (oldUser) {
             return res.status(409).json({ error: "User already exists with this email." });
         }
@@ -132,14 +131,13 @@ const signupUser = async (req, res) => {
 
         if (req.files) {
             if (req.files.profilePicture && req.files.profilePicture[0]) {
-                profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, '');
+                profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, ''); // Remove "storage/"
             }
             if (req.files.citizenshipPhoto && req.files.citizenshipPhoto[0]) {
-                citizenshipPhoto = req.files.citizenshipPhoto[0].path.replace(/^storage[\\/]/, '');
+                citizenshipPhoto = req.files.citizenshipPhoto[0].path.replace(/^storage[\\/]/, ''); // Remove "storage/"
             }
         }
-        
- 
+
         // Convert wardNumber to integer
         const wardNum = wardNumber ? parseInt(wardNumber) : null;
 
@@ -153,7 +151,9 @@ const signupUser = async (req, res) => {
             municipality: municipality || null,
             wardNumber: wardNum,
             profilePicture,
-            citizenshipPhoto
+            citizenshipPhoto,
+            dob: dob ? new Date(dob) : null, // Ensure valid DateTime format
+            isVerified: "PENDING", // Default verification status
         };
 
         // Add role-specific settings
@@ -162,16 +162,13 @@ const signupUser = async (req, res) => {
             if (!municipality || !wardNumber) {
                 return res.status(400).json({ error: "Municipality and ward number are required for municipality accounts." });
             }
-            
-            userData.isVerified = true; // Automatically verify municipality accounts
-        } else {
-            userData.isVerified = false; // Require verification for regular users
+            userData.isVerified = "ACCEPT"; // Automatically accept municipality accounts
         }
 
         // Create new user
         const newUser = await prisma.users.create({
             data: userData
-        });      
+        });
 
         // Remove sensitive information before sending
         const { password: userPassword, ...userWithoutPassword } = newUser;
@@ -380,6 +377,7 @@ const getCurrentUser = async (req, res) => {
                 wardNumber: true,
                 profilePicture: true,
                 citizenshipPhoto: true,
+                dob: true,
                 isVerified: true,
                 isActive: true,
                 createdAt: true,

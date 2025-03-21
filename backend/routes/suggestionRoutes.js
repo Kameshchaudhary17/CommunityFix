@@ -7,8 +7,9 @@ const suggestionController = require('../controllers/suggestionController');
 
 // GET routes
 router.get('/getSuggestion', authMiddleware.authenticateUser, suggestionController.getSuggestions);
+router.get('/getusersuggestion', authMiddleware.authenticateUser, suggestionController.getUserSuggestions);
 router.get('/:id/similar', authMiddleware.authenticateUser, suggestionController.getSimilarSuggestions);
-router.get('/:id', authMiddleware.authenticateUser, suggestionController.getSuggestionById);
+router.get('/getsuggestionbyid/:id', authMiddleware.authenticateUser, suggestionController.getSuggestionById);
 router.get('/:id/comments', authMiddleware.authenticateUser, suggestionController.getComments);
 
 // POST routes

@@ -607,18 +607,7 @@ const Suggestion = () => {
                     Try Again
                   </button>
                 </div>
-              ) : filteredSuggestions.length === 0 ? (
-                <div className="bg-white rounded-lg p-10 text-center">
-                  <p className="text-gray-500 mb-6">No suggestions found</p>
-                  <button 
-                    onClick={() => setIsNewSuggestionOpen(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-flex items-center"
-                  >
-                    <Plus size={18} className="mr-1" />
-                    Create Your First Suggestion
-                  </button>
-                </div>
-              ) : (
+              ): (
                 filteredSuggestions.map(suggestion => (
                   <SuggestionCard 
                     key={suggestion.id} 

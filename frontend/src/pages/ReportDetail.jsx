@@ -17,7 +17,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const ReportDetail = () => {
-  const { reportId } = useParams();
+  const {reportId } = useParams();
   const navigate = useNavigate();
   const [report, setReport] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
