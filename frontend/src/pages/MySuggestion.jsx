@@ -219,6 +219,8 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem('token');
 
+  
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
@@ -245,25 +247,22 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
           }
         }
       );
-      
+
+      console.log(response.data.suggestion)
       if (response.data) {
         onSubmit(response.data.suggestion);
+
         setTitle('');
-        setDescription('');
-        setMunicipality('');
-        setWardNumber('');
+        setSuggestions([...suggestions, ...response.data.suggestion]);
+        // setDescription('');
+        // setMunicipality('');
+        // setWardNumber('');
         toast.success('Suggestion created successfully');
       }
     } catch (error) {
       console.error('Error creating suggestion:', error);
-      if (error.response?.status === 401) {
-        toast.error('You must be logged in to create a suggestion');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to create suggestion');
-      }
-    } finally {
-      setLoading(false);
-    }
+      
+    } 
   };
 
   return (
@@ -398,6 +397,8 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
     }
   };
 
+console.log(suggestion)
+
   return (
     <div className="relative bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
       {message && (
@@ -504,11 +505,20 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
             </div>
 
             <p className="text-gray-700 my-2">{suggestion.description}</p>
+            <div className='flex gap-2'>
 
+ <button 
+              className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+              onClick={() => onUpvote(suggestion)}
+              >
+              <ThumbsUp size={16} className={`mr-1 ${suggestion.hasUserUpvoted ? 'fill-current' : ''}`} />
+              <span>{suggestion.upvotes.length || 0}</span>
+            </button>
             <button className="flex items-center text-gray-500 hover:text-blue-600" onClick={() => onCommentClick(suggestion)}>
               <MessageSquare size={16} className="mr-1" />
-              <span>{suggestion.commentsCount || 0}</span>
+              <span>{suggestion.comments.length || 0}</span>
             </button>
+              </div>
           </div>
         </div>
       )}
@@ -563,10 +573,8 @@ const Suggestion = () => {
             }
         });
 
-        console.log(response.data);
-
         if (response.data && response.data.suggestions) {
-            setSuggestions(response.data.suggestions);
+            setSuggestions(response.data.suggestions || []);
         } else {
             setError('No suggestion found.');
         }
@@ -626,17 +634,11 @@ const Suggestion = () => {
       } else {
         toast.success('Removed upvote');
       }
-      
-      // If needed, you can refetch the suggestions to ensure UI is in sync
-      // Uncomment this if you want to ensure perfect sync with backend
-      // await fetchSuggestions();
+
       
     } catch (error) {
       console.error('Error managing upvote:', error);
-      
-      // Revert the optimistic update if there was an error
       toast.error('Failed to process your upvote. Please try again.');
-      // Refresh data from server to ensure UI is in sync
       await fetchSuggestions();
     }
   };
@@ -671,6 +673,7 @@ const Suggestion = () => {
         isOpen={isNewSuggestionOpen} 
         onClose={() => setIsNewSuggestionOpen(false)} 
         onSubmit={handleSubmitSuggestion} 
+        setSuggestions
       />
 
       {/* Sidebar */}

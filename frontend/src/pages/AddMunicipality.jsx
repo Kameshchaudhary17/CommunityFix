@@ -76,7 +76,8 @@ const AddMunicipality = () => {
       const response = await axios.get('http://localhost:5555/api/auth/municipalityuser', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      setMunicipalities(response.data);
+      setMunicipalities(response.data.data);
+      console.log(response.data)
     } catch (error) {
       console.error('Error fetching municipalities:', error);
       toast.error('Failed to fetch municipalities');
@@ -209,7 +210,7 @@ const AddMunicipality = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {municipalities.map((municipality) => (
+              {municipalities?.map((municipality) => (
                 <tr key={municipality.user_id}>
                   <td className="px-6 py-4 text-sm text-gray-500">{municipality.user_name}</td>
                   <td className="px-6 py-4">{municipality.municipality}</td>

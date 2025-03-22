@@ -486,7 +486,7 @@ const Profile = () => {
                         </label>
                         {isEditMode ? (
                           <input
-                            type="dob"
+                            type="date"
                             name="dob"
                             value={formData.dob}
                             onChange={handleInputChange}

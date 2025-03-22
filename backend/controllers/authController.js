@@ -205,6 +205,7 @@ const updateUser = async (req, res) => {
         municipality, 
         wardNumber,
         password,
+        dob,
         isActive,
         isVerified
       } = req.body;
@@ -238,19 +239,32 @@ const updateUser = async (req, res) => {
       // Update file paths if files were uploaded
       if (req.files) {
         if (req.files.photo && req.files.photo[0]) {
-          updateData.profilePicture = req.files.photo[0].path;
+          // Remove "storage/" prefix from path
+          updateData.profilePicture = req.files.photo[0].path.replace(/^storage[\\/]/, '');
           
           // Delete old profile picture if it exists
-          if (user.profilePicture && fs.existsSync(user.profilePicture)) {
-            fs.unlinkSync(user.profilePicture);
+          if (user.profilePicture && fs.existsSync('storage/' + user.profilePicture)) {
+            fs.unlinkSync('storage/' + user.profilePicture);
           }
         }
+        if(dob) updateData.dob = new Date(dob)
         if (req.files.citizenshipPhoto && req.files.citizenshipPhoto[0]) {
-          updateData.citizenshipPhoto = req.files.citizenshipPhoto[0].path;
+          // Remove "storage/" prefix from path
+          updateData.citizenshipPhoto = req.files.citizenshipPhoto[0].path.replace(/^storage[\\/]/, '');
           
           // Delete old citizenship photo if it exists
-          if (user.citizenshipPhoto && fs.existsSync(user.citizenshipPhoto)) {
-            fs.unlinkSync(user.citizenshipPhoto);
+          if (user.citizenshipPhoto && fs.existsSync('storage/' + user.citizenshipPhoto)) {
+            fs.unlinkSync('storage/' + user.citizenshipPhoto);
+          }
+        }
+        
+        // Handle the case where the field names are profilePicture and citizenshipPhoto
+        if (req.files.profilePicture && req.files.profilePicture[0]) {
+          updateData.profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, '');
+          
+          // Delete old profile picture if it exists
+          if (user.profilePicture && fs.existsSync('storage/' + user.profilePicture)) {
+            fs.unlinkSync('storage/' + user.profilePicture);
           }
         }
       }
@@ -451,8 +465,16 @@ const getUsers = async (req, res) => {
 const getMunicipalityUsers = async (req, res) => {
     try {
         // Assuming req.user contains the authenticated user's data (set by auth middleware)
-        const { municipality, wardNumber, role } = req.user;
-        
+        const{ id, role} = req.user;
+        console.log(id, role)
+
+
+        const municipalitydetails = await prisma.users.findUnique({
+            where: {
+                user_id: id
+            }
+        })
+
         // Municipality admin should only see users in their jurisdiction
         if (role !== 'MUNICIPALITY') {
             return res.status(403).json({ 
@@ -463,8 +485,8 @@ const getMunicipalityUsers = async (req, res) => {
         // Query users with the same municipality and ward number
         const users = await prisma.users.findMany({
             where: {
-                municipality: municipality,
-                wardNumber: wardNumber
+                municipality: municipalitydetails.municipality,
+                wardNumber: municipalitydetails.wardNumber
             },
             select: {
                 user_id: true,
@@ -478,7 +500,8 @@ const getMunicipalityUsers = async (req, res) => {
                 isVerified: true,
                 isActive: true,
                 createdAt: true,
-                // Exclude password and other sensitive fields
+                citizenshipPhoto: true
+                
             }
         });
 
@@ -501,7 +524,7 @@ const getMunicipality = async (req, res) => {
           role: 'MUNICIPALITY'
         },
         select: {
-          id: true,
+          user_id: true,
           user_name: true,
           user_email: true,
           contact: true,

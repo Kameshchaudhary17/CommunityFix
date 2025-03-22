@@ -1,11 +1,32 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Bell } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Search, Bell } from "lucide-react";
+import axios from "axios";
 
 const Header = () => {
+  const [user, setUser] = useState(null);
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get("http://localhost:5555/api/auth/getcurrentuser", {
+          headers: {
+              'Authorization': `Bearer ${token}`
+          }
+      },{ withCredentials: true });
+      console.log(response.data.user)
+        setUser(response.data.user);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
   return (
     <div>
-      {/* Header */}
       <header className="bg-white shadow-sm px-6 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="relative flex-1 max-w-xl">
@@ -21,20 +42,23 @@ const Header = () => {
               <Bell size={20} />
               <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
-            <Link to="/profile"> 
-            <div className="flex items-center space-x-3">
-              
+            <Link to="/profile">
+              <div className="flex items-center space-x-3">
                 <img
-                  src="https://imgs.search.brave.com/HxsIMbItz_dQivtNgeLvbI7egmwxBXRKDd4oXXF0V6c/rs:fit:500:0:0:0/g:ce/aHR0cHM6Ly91cGxv/YWQud2lraW1lZGlh/Lm9yZy93aWtpcGVk/aWEvY29tbW9ucy90/aHVtYi9iL2I0L0xp/b25lbC1NZXNzaS1B/cmdlbnRpbmEtMjAy/Mi1GSUZBLVdvcmxk/LUN1cF8lMjhjcm9w/cGVkJTI5LmpwZy81/MTJweC1MaW9uZWwt/TWVzc2ktQXJnZW50/aW5hLTIwMjItRklG/QS1Xb3JsZC1DdXBf/JTI4Y3JvcHBlZCUy/OS5qcGc"
+                  src={user?.profilePicture || `http://localhost:5555/api/auth/${user}}`}
                   alt="Profile"
                   className="w-10 h-10 rounded-full border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition"
                 />
-              
-              <div>
-                <div className="font-medium">Kamesh</div>
-                <div className="text-xs text-gray-500">Citizen</div>
-              </div> 
-            </div></Link>
+                <div>
+                  <div className="font-medium">
+                    {user ? user.user_name: "user_name"}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {user?.role || "Citizen"}
+                  </div>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </header>

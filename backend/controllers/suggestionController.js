@@ -42,10 +42,12 @@ exports.createSuggestion = async (req, res) => {
         userId,
       },
       include: {
+        upvotes,
         user: {
           select: {
             user_name: true,
             user_email: true,
+            profilePicture: true
           },
         },
       },
@@ -65,7 +67,6 @@ exports.createSuggestion = async (req, res) => {
 exports.getUserSuggestions = async (req, res) => {
   try {
       const  userId  = req.user.id; // Get userId from authenticated user
-
       if (!userId || isNaN(userId)) {
           return res.status(400).json({ message: 'Invalid User ID' });
       }
@@ -85,6 +86,7 @@ exports.getUserSuggestions = async (req, res) => {
               },
               comments: {
                   include: {
+                   
                       user: {
                           select: {
                               user_name: true
@@ -92,13 +94,14 @@ exports.getUserSuggestions = async (req, res) => {
                       }
                   },
                   orderBy: { createdAt: 'desc' }
-              }
+              }, upvotes: true
           }
       });
 
       if (!suggestions.length) {
-          return res.status(404).json({ message: 'No suggestions found for this user' });
-      }
+        return res.status(200).json({ message: 'No suggestions found', suggestions: [] });
+    }
+    
 
       res.status(200).json({ suggestions });
   } catch (error) {

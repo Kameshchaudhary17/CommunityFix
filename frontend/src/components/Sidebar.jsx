@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home as HomeIcon,
   MessageSquare,
@@ -12,6 +12,22 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
+  const navigate = useNavigate();
+
+const token = localStorage.getItem('token')
+
+if(!token) navigate('/login')
+
+  const handleLogout = () => {
+    // Remove all relevant items from localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('upvotedReports');
+    
+    // Redirect to login page
+    navigate('/login');
+  };
+
   const menuItems = [
     { icon: <HomeIcon size={20} />, label: 'Home', path: '/home' },
     { icon: <MessageSquare size={20} />, label: 'Report Issue', path: '/report' },
@@ -19,7 +35,8 @@ const Sidebar = () => {
     { icon: <Lightbulb size={20} />, label: 'Suggestion', path: '/suggestion' },
     { icon: <BookMarked size={20} />, label: 'My Suggestion', path: '/mysuggestion' },
     { icon: <Info size={20} />, label: 'About Community Fix', path: '/about' },
-    { icon: <LogOut size={20} />, label: 'Logout', path: '/login' }
+    // Logout is handled differently, so we'll set path to null
+    { icon: <LogOut size={20} />, label: 'Logout', path: null, onClick: handleLogout }
   ];
 
   return (
@@ -38,17 +55,27 @@ const Sidebar = () => {
         <ul className="space-y-2">
           {menuItems.map((item, index) => (
             <li key={index}>
-              <NavLink
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200 ${
-                    isActive ? 'text-blue-600 bg-blue-50 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-                  }`
-                }
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </NavLink>
+              {item.path ? (
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200 ${
+                      isActive ? 'text-blue-600 bg-blue-50 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+                    }`
+                  }
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </NavLink>
+              ) : (
+                <button
+                  onClick={item.onClick}
+                  className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-gray-700 hover:bg-gray-100"
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </button>
+              )}
             </li>
           ))}
         </ul>

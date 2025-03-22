@@ -3,81 +3,13 @@ import { Check, X, Eye, Search, Filter, ChevronDown, ChevronUp, RefreshCw, UserP
 import Header from '../components/Header';
 import { toast, Toaster } from 'react-hot-toast';
 import MunicipalitySidebar from '../components/MunicipalitySidebar';
+import axios from 'axios';
 
 const UserManagement = () => {
-  // Sample users data - in a real app, you would fetch this from an API
-  const [users, setUsers] = useState([
-    {
-      id: 'USR-1001',
-      name: 'John Doe',
-      email: 'johndoe@example.com',
-      contact: '+977 9812345678',
-      municipality: 'Kathmandu Metropolitan City',
-      wardNo: '10',
-      dateOfBirth: '1990-05-15',
-      citizenshipNumber: '123-456-7890',
-      profilePicture: "/api/placeholder/400/400",
-      citizenshipPhoto: "/api/placeholder/400/400",
-      status: 'Pending',
-      registeredDate: '2023-09-15'
-    },
-    {
-      id: 'USR-1002',
-      name: 'Jane Smith',
-      email: 'janesmith@example.com',
-      contact: '+977 9876543210',
-      municipality: 'Lalitpur Metropolitan City',
-      wardNo: '5',
-      dateOfBirth: '1992-08-21',
-      citizenshipNumber: '987-654-3210',
-      profilePicture: "/api/placeholder/400/400",
-      citizenshipPhoto: "/api/placeholder/400/400",
-      status: 'Approved',
-      registeredDate: '2023-08-10'
-    },
-    {
-      id: 'USR-1003',
-      name: 'Michael Johnson',
-      email: 'michael@example.com',
-      contact: '+977 9845678912',
-      municipality: 'Bhaktapur Municipality',
-      wardNo: '3',
-      dateOfBirth: '1985-02-10',
-      citizenshipNumber: '456-789-0123',
-      profilePicture: "/api/placeholder/400/400",
-      citizenshipPhoto: "/api/placeholder/400/400",
-      status: 'Rejected',
-      registeredDate: '2023-09-05'
-    },
-    {
-      id: 'USR-1004',
-      name: 'Sarah Williams',
-      email: 'sarah@example.com',
-      contact: '+977 9854321098',
-      municipality: 'Kirtipur Municipality',
-      wardNo: '8',
-      dateOfBirth: '1988-11-25',
-      citizenshipNumber: '789-012-3456',
-      profilePicture: "/api/placeholder/400/400",
-      citizenshipPhoto: "/api/placeholder/400/400",
-      status: 'Pending',
-      registeredDate: '2023-09-18'
-    },
-    {
-      id: 'USR-1005',
-      name: 'Robert Brown',
-      email: 'robert@example.com',
-      contact: '+977 9812345678',
-      municipality: 'Kathmandu Metropolitan City',
-      wardNo: '15',
-      dateOfBirth: '1991-07-30',
-      citizenshipNumber: '321-654-9870',
-      profilePicture: "/api/placeholder/400/400",
-      citizenshipPhoto: "/api/placeholder/400/400",
-      status: 'Approved',
-      registeredDate: '2023-07-22'
-    }
-  ]);
+  // State for users data
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // State for search, filters, and sorting
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,6 +18,36 @@ const UserManagement = () => {
   const [isUserDetailOpen, setIsUserDetailOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch users from API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        
+        const response = await axios.get('http://localhost:5555/api/auth/getmunicipalityuser', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (response.data && response.data.users) {
+          setUsers(response.data.users);
+        } else {
+          setUsers([]);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        setError('Failed to fetch users. Please try again later.');
+        setLoading(false);
+        toast.error('Error fetching users');
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   // Handle search
   const handleSearch = (e) => {
@@ -113,82 +75,186 @@ const UserManagement = () => {
   };
 
   // Approve user
-  const handleApproveUser = (userId) => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+  const handleApproveUser = async (userId) => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.put(`http://localhost:5555/api/auth/municipalityuser/${userId}/approve`, 
+        { isVerified: true },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Update local state
       setUsers(users.map(user => 
-        user.id === userId ? { ...user, status: 'Approved' } : user
+        user.user_id === userId ? { ...user, status: 'Approved' } : user
       ));
+      
       setIsLoading(false);
       toast.success('User approved successfully');
-    }, 800);
+    } catch (err) {
+      console.error('Error approving user:', err);
+      setIsLoading(false);
+      toast.error('Failed to approve user');
+    }
   };
 
   // Reject user
-  const handleRejectUser = (userId) => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+  const handleRejectUser = async (userId) => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.put(`http://localhost:5555/api/auth/municipalityuser/${userId}/reject`, 
+        { isVerified: false },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Update local state
       setUsers(users.map(user => 
-        user.id === userId ? { ...user, status: 'Rejected' } : user
+        user.user_id === userId ? { ...user, status: 'Rejected' } : user
       ));
+      
       setIsLoading(false);
       toast.success('User rejected');
-    }, 800);
+    } catch (err) {
+      console.error('Error rejecting user:', err);
+      setIsLoading(false);
+      toast.error('Failed to reject user');
+    }
   };
 
   // Reset user status to pending
-  const handleResetStatus = (userId) => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+  const handleResetStatus = async (userId) => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.put(`http://localhost:5555/api/auth/municipalityuser/${userId}/reset`, 
+        { isVerified: null },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Update local state
       setUsers(users.map(user => 
-        user.id === userId ? { ...user, status: 'Pending' } : user
+        user.user_id === userId ? { ...user, status: 'Pending' } : user
       ));
+      
       setIsLoading(false);
       toast.success('User status reset to pending');
-    }, 800);
+    } catch (err) {
+      console.error('Error resetting user status:', err);
+      setIsLoading(false);
+      toast.error('Failed to reset user status');
+    }
   };
 
   // Filter users based on search term and status filter
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.citizenshipNumber.includes(searchTerm);
+    const matchesSearch = 
+      user.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.citizenshipNumber?.includes(searchTerm) ||
+      user.contact?.includes(searchTerm);
     
-    const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
+    const userStatus = user.isVerified === true ? 'Approved' : 
+                      user.isVerified === false ? 'Rejected' : 'Pending';
+    
+    const matchesStatus = statusFilter === 'All' || userStatus === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
   // Sort users
   const sortedUsers = [...filteredUsers].sort((a, b) => {
-    if (a[sortConfig.key] < b[sortConfig.key]) {
+    const aValue = a[sortConfig.key];
+    const bValue = b[sortConfig.key];
+    
+    if (aValue < bValue) {
       return sortConfig.direction === 'asc' ? -1 : 1;
     }
-    if (a[sortConfig.key] > b[sortConfig.key]) {
+    if (aValue > bValue) {
       return sortConfig.direction === 'asc' ? 1 : -1;
     }
     return 0;
   });
 
   // Get status badge class
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case 'Approved':
-        return 'bg-green-100 text-green-800';
-      case 'Rejected':
-        return 'bg-red-100 text-red-800';
-      case 'Pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusBadgeClass = (isVerified) => {
+    if (isVerified === "PENDING") return 'bg-yellow-100 text-white-800';
+    if (isVerified === "ACCEPT") return 'bg-green-100 text-black-800';
+    if (isVerified === "REJECT") return 'bg-red-100 text-red-800';
+    return 'bg-yellow-100 text-yellow-800';
   };
+
+  console.log(sortedUsers)
+
+  // Get status text
+  const getStatusText = (isVerified) => {
+    if (isVerified === "PENDING") return 'Pending';
+    if (isVerified === "ACCEPT") return 'Accepted';
+    return 'Pending';
+  };
+
+  // Display loading state
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gray-50 md:flex-row">
+        <MunicipalitySidebar className="w-full md:w-64 flex-shrink-0" />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header />
+          <main className="flex-1 overflow-y-auto py-8">
+            <div className="container mx-auto px-4 flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                <p className="text-lg text-gray-600">Loading users...</p>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Display error state
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gray-50 md:flex-row">
+        <MunicipalitySidebar className="w-full md:w-64 flex-shrink-0" />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header />
+          <main className="flex-1 overflow-y-auto py-8">
+            <div className="container mx-auto px-4 flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="inline-block rounded-full h-12 w-12 bg-red-100 p-2 text-red-500 mb-4">
+                  <X className="h-8 w-8" />
+                </div>
+                <p className="text-lg text-gray-800 font-medium">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 md:flex-row">
@@ -202,7 +268,6 @@ const UserManagement = () => {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">User Management</h1>
-             
             </div>
 
             {/* Filters and Search */}
@@ -215,7 +280,7 @@ const UserManagement = () => {
                     </div>
                     <input
                       type="text"
-                      placeholder="Search by name, email, or citizenship number"
+                      placeholder="Search by name, email, or contact"
                       className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={searchTerm}
                       onChange={handleSearch}
@@ -267,11 +332,11 @@ const UserManagement = () => {
                       <th 
                         scope="col" 
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('id')}
+                        onClick={() => handleSort('user_id')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>User ID</span>
-                          {sortConfig.key === 'id' && (
+                          {sortConfig.key === 'user_id' && (
                             sortConfig.direction === 'asc' ? 
                             <ChevronUp className="h-4 w-4" /> : 
                             <ChevronDown className="h-4 w-4" />
@@ -283,11 +348,11 @@ const UserManagement = () => {
                       <th 
                         scope="col" 
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('name')}
+                        onClick={() => handleSort('user_name')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>Name</span>
-                          {sortConfig.key === 'name' && (
+                          {sortConfig.key === 'user_name' && (
                             sortConfig.direction === 'asc' ? 
                             <ChevronUp className="h-4 w-4" /> : 
                             <ChevronDown className="h-4 w-4" />
@@ -320,11 +385,11 @@ const UserManagement = () => {
                       <th 
                         scope="col" 
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('registeredDate')}
+                        onClick={() => handleSort('createdAt')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>Registered</span>
-                          {sortConfig.key === 'registeredDate' && (
+                          {sortConfig.key === 'createdAt' && (
                             sortConfig.direction === 'asc' ? 
                             <ChevronUp className="h-4 w-4" /> : 
                             <ChevronDown className="h-4 w-4" />
@@ -336,11 +401,11 @@ const UserManagement = () => {
                       <th 
                         scope="col" 
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('status')}
+                        onClick={() => handleSort('isVerified')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>Status</span>
-                          {sortConfig.key === 'status' && (
+                          {sortConfig.key === 'isVerified' && (
                             sortConfig.direction === 'asc' ? 
                             <ChevronUp className="h-4 w-4" /> : 
                             <ChevronDown className="h-4 w-4" />
@@ -356,10 +421,10 @@ const UserManagement = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {sortedUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
+                      <tr key={user.user_id} className="hover:bg-gray-50">
                         {/* ID */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {user.id}
+                          {user.user_id}
                         </td>
                         
                         {/* Name with profile picture */}
@@ -367,43 +432,43 @@ const UserManagement = () => {
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
                               <img 
-                                className="h-10 w-10 rounded-full" 
-                                src={user.profilePicture} 
-                                alt={user.name} 
+                                className="h-10 w-10 rounded-full object-cover" 
+                                src={user.profilePicture ? `http://localhost:5555/${user.profilePicture}` : "/api/placeholder/400/400"} 
+                                alt={user.user_name} 
                               />
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                              <div className="text-sm text-gray-500">{user.citizenshipNumber}</div>
+                              <div className="text-sm font-medium text-gray-900">{user.user_name}</div>
+                              <div className="text-sm text-gray-500">{user.citizenshipNumber || 'No Citizenship Number'}</div>
                             </div>
                           </div>
                         </td>
                         
                         {/* Contact Info */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.email}</div>
-                          <div className="text-sm text-gray-500">{user.contact}</div>
+                          <div className="text-sm text-gray-900">{user.user_email || 'No Email'}</div>
+                          <div className="text-sm text-gray-500">{user.contact || 'No Contact'}</div>
                         </td>
                         
                         {/* Municipality */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.municipality}</div>
-                          <div className="text-sm text-gray-500">Ward {user.wardNo}</div>
+                          <div className="text-sm text-gray-900">{user.municipality || 'Not Specified'}</div>
+                          <div className="text-sm text-gray-500">Ward {user.wardNumber || 'N/A'}</div>
                         </td>
                         
                         {/* Registration Date */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(user.registeredDate).toLocaleDateString('en-US', {
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'short',
                             day: 'numeric'
-                          })}
+                          }) : 'Unknown'}
                         </td>
                         
                         {/* Status */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(user.status)}`}>
-                            {user.status}
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(user.isVerified)}`}>
+                            {getStatusText(user.isVerified)}
                           </span>
                         </td>
                         
@@ -420,10 +485,10 @@ const UserManagement = () => {
                             </button>
                             
                             {/* Conditional Buttons based on Status */}
-                            {user.status === 'Pending' && (
+                            {user.isVerified === "PENDING" && (
                               <>
                                 <button
-                                  onClick={() => handleApproveUser(user.id)}
+                                  onClick={() => handleApproveUser(user.user_id)}
                                   disabled={isLoading}
                                   className="p-1.5 bg-green-100 text-green-600 rounded-md hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Approve User"
@@ -431,7 +496,7 @@ const UserManagement = () => {
                                   <Check className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleRejectUser(user.id)}
+                                  onClick={() => handleRejectUser(user.user_id)}
                                   disabled={isLoading}
                                   className="p-1.5 bg-red-100 text-red-600 rounded-md hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Reject User"
@@ -441,9 +506,9 @@ const UserManagement = () => {
                               </>
                             )}
                             
-                            {(user.status === 'Approved' || user.status === 'Rejected') && (
+                            {(user.isVerified === "ACCEPT" || user.isVerified === "REJECT") && (
                               <button
-                                onClick={() => handleResetStatus(user.id)}
+                                onClick={() => handleResetStatus(user.user_id)}
                                 disabled={isLoading}
                                 className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Reset Status"
@@ -480,27 +545,26 @@ const UserManagement = () => {
                   </div>
                   <div>
                     <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <a
-                        href="#"
+                      <button
                         className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                       >
                         <span className="sr-only">Previous</span>
                         <ChevronDown className="h-5 w-5 transform rotate-90" />
-                      </a>
-                      <a
-                        href="#"
+                      </button>
+                      
+                      <button
                         aria-current="page"
                         className="z-10 bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium"
                       >
                         1
-                      </a>
-                      <a
-                        href="#"
+                      </button>
+                      
+                      <button
                         className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                       >
                         <span className="sr-only">Next</span>
                         <ChevronDown className="h-5 w-5 transform -rotate-90" />
-                      </a>
+                      </button>
                     </nav>
                   </div>
                 </div>
@@ -531,18 +595,18 @@ const UserManagement = () => {
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-500 mb-2">Profile Picture</h4>
                     <img 
-                      src={selectedUser.profilePicture} 
-                      alt={selectedUser.name} 
-                      className="w-full h-auto rounded-lg shadow"
+                      src={selectedUser.profilePicture ? `http://localhost:5555/${selectedUser.profilePicture}` : "/api/placeholder/400/400"} 
+                      alt={selectedUser.user_name} 
+                      className="w-full h-auto rounded-lg shadow object-cover"
                     />
                   </div>
                   
                   <div>
                     <h4 className="text-sm font-medium text-gray-500 mb-2">Citizenship Document</h4>
                     <img 
-                      src={selectedUser.citizenshipPhoto} 
+                      src={selectedUser.citizenshipPhoto ? `http://localhost:5555/${selectedUser.citizenshipPhoto}` : "/api/placeholder/400/400"} 
                       alt="Citizenship" 
-                      className="w-full h-auto rounded-lg shadow"
+                      className="w-full h-auto rounded-lg shadow object-cover"
                     />
                   </div>
                 </div>
@@ -553,32 +617,32 @@ const UserManagement = () => {
                     <div className="space-y-6">
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">User ID</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.id}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.user_id}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Full Name</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.name}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.user_name}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Email Address</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.email}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.user_email || 'No Email'}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Contact Number</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.contact}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.contact || 'No Contact'}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Date of Birth</h4>
                         <p className="font-medium text-gray-900">
-                          {new Date(selectedUser.dateOfBirth).toLocaleDateString('en-US', {
+                          {selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
-                          })}
+                          }) : 'Not provided'}
                         </p>
                       </div>
                     </div>
@@ -587,33 +651,32 @@ const UserManagement = () => {
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Registration Date</h4>
                         <p className="font-medium text-gray-900">
-                          {new Date(selectedUser.registeredDate).toLocaleDateString('en-US', {
+                          {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
-                          })}
+                          }) : 'Unknown'}
                         </p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Municipality</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.municipality}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.municipality || 'Not Specified'}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Ward No.</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.wardNo}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.wardNumber || 'N/A'}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Citizenship Number</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.citizenshipNumber}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.citizenshipNumber || 'Not Provided'}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Status</h4>
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(selectedUser.status)}`}>
-                          {selectedUser.status}
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(selectedUser.isVerified)}`}>{getStatusText(selectedUser.isVerified)}
                         </span>
                       </div>
                     </div>
@@ -623,50 +686,50 @@ const UserManagement = () => {
             </div>
 
             <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-              {selectedUser.status === 'Pending' && (
+              {selectedUser.isVerified === null && (
                 <>
                   <button
                     onClick={() => {
-                      handleApproveUser(selectedUser.id);
+                      handleApproveUser(selectedUser.user_id);
                       setIsUserDetailOpen(false);
                     }}
                     disabled={isLoading}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    <Check className="mr-1.5 h-4 w-4" />
+                    <Check className="h-4 w-4" />
                     Approve User
                   </button>
                   <button
                     onClick={() => {
-                      handleRejectUser(selectedUser.id);
+                      handleRejectUser(selectedUser.user_id);
                       setIsUserDetailOpen(false);
                     }}
                     disabled={isLoading}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    <X className="mr-1.5 h-4 w-4" />
+                    <X className="h-4 w-4" />
                     Reject User
                   </button>
                 </>
               )}
               
-              {(selectedUser.status === 'Approved' || selectedUser.status === 'Rejected') && (
+              {(selectedUser.isVerified === true || selectedUser.isVerified === false) && (
                 <button
                   onClick={() => {
-                    handleResetStatus(selectedUser.id);
+                    handleResetStatus(selectedUser.user_id);
                     setIsUserDetailOpen(false);
                   }}
                   disabled={isLoading}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  <RefreshCw className="mr-1.5 h-4 w-4" />
-                  Reset to Pending
+                  <RefreshCw className="h-4 w-4" />
+                  Reset Status
                 </button>
               )}
               
               <button
                 onClick={() => setIsUserDetailOpen(false)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
               >
                 Close
               </button>
