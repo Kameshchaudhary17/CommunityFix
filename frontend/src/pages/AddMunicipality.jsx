@@ -73,7 +73,7 @@ const AddMunicipality = () => {
   const fetchMunicipalities = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5555/api/municipalities', {
+      const response = await axios.get('http://localhost:5555/api/auth/municipalityuser', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setMunicipalities(response.data);

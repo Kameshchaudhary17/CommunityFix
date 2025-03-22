@@ -337,19 +337,23 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updatedTitle, setUpdatedTitle] = useState(suggestion.title);
   const [updatedDescription, setUpdatedDescription] = useState(suggestion.description);
+  const [user, setUser] = useState(null);
+  const [message, setMessage] = useState(null); // Success/Error message
+  const [messageType, setMessageType] = useState(""); // "success" or "error"
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'submitted': return 'bg-blue-100 text-blue-700';
-      case 'in progress': return 'bg-orange-100 text-orange-700';
-      case 'approved': return 'bg-green-100 text-green-700';
-      case 'Pending': return 'bg-blue-100 text-blue-700';
-      default: return 'bg-gray-100 text-gray-700';
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (storedUser) {
+      setUser(storedUser);
     }
-  };
+  }, []);
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
+  const token = localStorage.getItem("token");
+
+  const showMessage = (msg, type = "success") => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => setMessage(null), 3000); // Auto-hide message after 3s
   };
 
   const handleUpdateClick = () => {
@@ -357,40 +361,64 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
     setShowUpdateForm(true);
   };
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = async () => {
     setMenuOpen(false);
-    onDelete(suggestion.id);
+    if (!token) {
+      showMessage("No token provided", "error");
+      return;
+    }
+    try {
+      await axios.delete(`http://localhost:5555/api/suggestion/${suggestion.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showMessage("Suggestion deleted successfully");
+      onDelete(suggestion.id);
+    } catch (error) {
+      showMessage(error.response?.data?.message || "Failed to delete suggestion", "error");
+    }
   };
 
-  const handleUpdateSubmit = (e) => {
+  const handleUpdateSubmit = async (e) => {
     e.preventDefault();
-    onUpdate(suggestion.id, {
-      title: updatedTitle,
-      description: updatedDescription
-    });
-    setShowUpdateForm(false);
-  };
-
-  const handleCancel = () => {
-    setUpdatedTitle(suggestion.title);
-    setUpdatedDescription(suggestion.description);
-    setShowUpdateForm(false);
+    if (!token) {
+      showMessage("No token provided", "error");
+      return;
+    }
+    try {
+      await axios.put(
+        `http://localhost:5555/api/suggestion/${suggestion.id}`,
+        { title: updatedTitle, description: updatedDescription },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      onUpdate(suggestion.id, { title: updatedTitle, description: updatedDescription });
+      showMessage("Suggestion updated successfully");
+      setShowUpdateForm(false);
+    } catch (error) {
+      showMessage(error.response?.data?.message || "Failed to update suggestion", "error");
+    }
   };
 
   return (
-    <div className="bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
+    <div className="relative bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
+      {message && (
+        <div
+          className={`absolute top-2 right-2 px-4 py-2 text-sm font-semibold rounded-md ${
+            messageType === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          }`}
+        >
+          {message}
+        </div>
+      )}
+
       {showUpdateForm ? (
         <div className="update-form">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-semibold text-lg">Update Suggestion</h3>
-            <button 
-              className="text-gray-500 hover:text-gray-700"
-              onClick={handleCancel}
-            >
+            <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowUpdateForm(false)}>
               <X size={18} />
             </button>
           </div>
-          
+
           <form onSubmit={handleUpdateSubmit}>
             <div className="mb-4">
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -405,7 +433,7 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
                 required
               />
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
                 Description
@@ -418,12 +446,12 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
                 required
               />
             </div>
-            
+
             <div className="flex justify-end space-x-2">
               <button
                 type="button"
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                onClick={handleCancel}
+                onClick={() => setShowUpdateForm(false)}
               >
                 Cancel
               </button>
@@ -440,82 +468,47 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
         <div className="flex items-start">
           <div className="h-12 w-12 rounded-full overflow-hidden mr-3 flex-shrink-0 border-2 border-gray-200">
             <img
-              src="/api/placeholder/80/80"
-              alt={suggestion.user?.user_name || 'User'}
+              src={`http://localhost:5555/${suggestion.user?.profilePicture || "default.png"}`}
+              alt={suggestion.user?.user_name || "User"}
               className="h-full w-full object-cover"
             />
           </div>
-          
+
           <div className="flex-1">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-semibold text-lg">{suggestion.title}</h3>
                 <p className="text-sm text-gray-500">
-                  {suggestion.user?.user_name || 'Anonymous'} • {new Date(suggestion.createdAt).toLocaleDateString()}
+                  {suggestion.user?.user_name || "Anonymous"} • {new Date(suggestion.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(suggestion.status)}`}>
-                  {suggestion.status || 'Pending'}
-                </span>
-                
-                <div className="relative">
-                  <button 
-                    className="p-1 rounded-full hover:bg-gray-100"
-                    onClick={toggleMenu}
-                    aria-label="More options"
-                  >
-                    <MoreVertical size={16} className="text-gray-500" />
-                  </button>
-                  
-                  {menuOpen && (
-                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                      <div className="py-1">
-                        <button
-                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={handleUpdateClick}
-                        >
-                          <Edit size={14} className="mr-2" />
-                          Update
-                        </button>
-                        <button
-                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                          onClick={handleDeleteClick}
-                        >
-                          <Trash2 size={14} className="mr-2" />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+
+              <div className="relative">
+                <button className="p-1 rounded-full hover:bg-gray-100" onClick={() => setMenuOpen(!menuOpen)}>
+                  <MoreVertical size={16} className="text-gray-500" />
+                </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                    <button className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center" onClick={handleUpdateClick}>
+                      <Edit size={14} className="mr-2" />
+                      Update
+                    </button>
+                    <button className="w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center" onClick={handleDeleteClick}>
+                      <Trash2 size={14} className="mr-2" />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-            
+
             <p className="text-gray-700 my-2">{suggestion.description}</p>
-            
-            <div className="text-xs text-gray-500 mb-3">
-              {suggestion.municipality}, Ward {suggestion.wardNumber}
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button
-                className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
-                onClick={() => onUpvote(suggestion)}
-              >
-                <ThumbsUp size={16} className={`mr-1 ${suggestion.hasUserUpvoted ? 'fill-current' : ''}`} />
-                <span>{suggestion.upvoteCount || 0}</span>
-              </button>
-              
-              <button
-                className="flex items-center text-gray-500 hover:text-blue-600"
-                onClick={() => onCommentClick(suggestion)}
-              >
-                <MessageSquare size={16} className="mr-1" />
-                <span>{suggestion.commentsCount || suggestion._count?.comments || 0}</span>
-              </button>
-            </div>
+
+            <button className="flex items-center text-gray-500 hover:text-blue-600" onClick={() => onCommentClick(suggestion)}>
+              <MessageSquare size={16} className="mr-1" />
+              <span>{suggestion.commentsCount || 0}</span>
+            </button>
           </div>
         </div>
       )}

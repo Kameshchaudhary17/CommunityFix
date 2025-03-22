@@ -493,6 +493,51 @@ const getMunicipalityUsers = async (req, res) => {
     }
 };
 
+const getMunicipality = async (req, res) => {
+    try {
+      // Query all users with role MUNICIPALITY
+      const municipalityUsers = await prisma.users.findMany({
+        where: {
+          role: 'MUNICIPALITY'
+        },
+        select: {
+          id: true,
+          user_name: true,
+          user_email: true,
+          contact: true,
+          municipality: true,
+          wardNumber: true,
+          profilePicture: true,
+          citizenshipPhoto: true,
+          dob: true,
+          isVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          // Excluding password for security
+        }
+      });
+  
+      // Check if any municipality users exist
+      if (municipalityUsers.length === 0) {
+        return res.status(200).json({
+          message: "No municipality accounts found.",
+          data: []
+        });
+      }
+  
+      // Send the response with municipality users
+      res.status(200).json({
+        message: "Municipality accounts retrieved successfully.",
+        count: municipalityUsers.length,
+        data: municipalityUsers
+      });
+      
+    } catch (error) {
+      console.error('Error fetching municipality users:', error);
+      res.status(500).json({ error: "Internal server error." });
+    }
+  };
+  
 module.exports = {
     loginUser, 
     signupUser,
@@ -502,5 +547,6 @@ module.exports = {
     getUsersByLocation,
     getCurrentUser,
     getUsers,
-    getMunicipalityUsers
+    getMunicipalityUsers,
+    getMunicipality
 };

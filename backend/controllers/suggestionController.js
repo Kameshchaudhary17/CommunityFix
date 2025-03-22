@@ -170,7 +170,8 @@ exports.getSuggestions = async (req, res) => {
             user_name: true,
             user_email: true,
             municipality: true,
-            wardNumber: true
+            wardNumber: true,
+            profilePicture: true
           }
         },
         _count: {

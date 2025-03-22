@@ -1,29 +1,29 @@
 import React, { useState } from 'react';
 import { Home, Building2, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-
-const AdminSidebar = ({ onNavigate }) => {
+const AdminSidebar = () => {
+  const navigate = useNavigate();
   const [activePath, setActivePath] = useState('/admin');
 
   const menuItems = [
-      { icon: <Home size={20} />, name: 'Dashboard', path: '/admin' },
-      { icon: <Building2 size={20} />, name: 'Manage Municipality', path: '/register' },
-    ];
-  
+    { icon: <Home size={20} />, name: 'Dashboard', path: '/admin' },
+    { icon: <Building2 size={20} />, name: 'Manage Municipality', path: '/register' },
+  ];
 
   const handleNavigation = (path) => {
     setActivePath(path);
-    onNavigate?.(path);
+    navigate(path); // Navigate to the selected path
   };
 
   const handleLogout = () => {
-    // Add logout logic here
-    onNavigate?.('/login');
+    localStorage.removeItem('token'); // Clear authentication token
+    navigate('/login'); // Redirect to login page
   };
 
   return (
     <div className="flex flex-col h-screen w-64 bg-white p-4 border-r">
-       <div className="flex items-center text-2xl md:text-2xl font-bold text-blue-500 mb-8">
+      <div className="flex items-center text-2xl md:text-2xl font-bold text-blue-500 mb-8">
         Community
         <span className="text-teal-500">Fix</span>
         <div className="w-8 h-8 ml-2 rounded-full border-2 border-teal-500 flex items-center justify-center">

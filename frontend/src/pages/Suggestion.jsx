@@ -348,8 +348,8 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
       <div className="flex items-start">
         <div className="h-12 w-12 rounded-full overflow-hidden mr-3 flex-shrink-0 border-2 border-gray-200">
           <img 
-            src="/api/placeholder/80/80" 
-            alt={suggestion.user?.user_name || 'User'} 
+            src={`http://localhost:5555/${suggestion.user.profilePicture}`}
+            alt={suggestion.user?.user_id || 'User'} 
             className="h-full w-full object-cover" 
           />
         </div>
