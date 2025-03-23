@@ -45,7 +45,7 @@ const Header = () => {
             <Link to="/profile">
               <div className="flex items-center space-x-3">
                 <img
-                  src={user?.profilePicture || `http://localhost:5555/api/auth/${user}}`}
+                  src={`http://localhost:5555/${user?.profilePicture}`}
                   alt="Profile"
                   className="w-10 h-10 rounded-full border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition"
                 />

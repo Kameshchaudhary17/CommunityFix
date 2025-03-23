@@ -8,12 +8,9 @@ const createReport = async (req, res) => {
     description, 
     municipality, 
     wardNumber, 
-    photo,
     latitude, 
     longitude 
   } = req.body;
-
-
 
   // Validate input
   if (!title || !description || !municipality || !wardNumber) {
@@ -24,7 +21,14 @@ const createReport = async (req, res) => {
     // Assuming user ID is available from authentication middleware
     const userId = req.user.id;
 
-    // Create report
+    // Handle photo upload
+    let photo = null;
+
+    if (req.file) { // Use `req.file` instead of `req.files` for single file uploads
+      photo = req.file.path.replace(/^storage[\\/]/, ''); // Remove "storage/" prefix if necessary
+    }
+
+    // Create report in database
     const newReport = await prisma.reports.create({
       data: {
         title,
@@ -34,7 +38,7 @@ const createReport = async (req, res) => {
         latitude: latitude ? Number(latitude) : null,
         longitude: longitude ? Number(longitude) : null,
         user_id: userId,
-        photo: req.file ? req.file.path : null // Assuming file upload middleware
+        photo, // Save the processed photo path
       }
     });
 
@@ -47,6 +51,7 @@ const createReport = async (req, res) => {
     return res.status(500).json({ error: "Internal server error." });
   }
 };
+
 
 const getAllReports = async (req, res) => {
   try {
@@ -109,6 +114,7 @@ const getReportById = async (req, res) => {
             user_name: true,
             user_email: true, 
             contact: true,
+            createdAt: true
           }
         }
       }
@@ -136,7 +142,7 @@ const updateReport = async (req, res) => {
     municipality, 
     wardNumber, 
     latitude, 
-    longitude 
+    longitude,
   } = req.body;
 
   try {
@@ -263,8 +269,7 @@ const getUserReports = async (req, res) => {
 
 // Controller function to get a single user report by ID
 const getSingleUserReport = async (req, res) => {
-  
-  
+
   try {
     
     
@@ -272,9 +277,15 @@ const getSingleUserReport = async (req, res) => {
     const report = await prisma.reports.findFirst({
       where: { 
         user_id: req.user.id  // Ensure the report belongs to the requesting user
-      },include:{
-        user: true
-
+      },include: {
+        user: {
+          select: {
+            user_name: true,
+            user_email: true, 
+            contact: true,
+            profilePicture: true,
+          }
+        }
       }
     });
     

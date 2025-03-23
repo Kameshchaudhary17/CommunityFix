@@ -48,7 +48,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5555/api/suggestion/${suggestion.id}/comments`, {
+      const response = await axios.get(`http://localhost:5555/api/comment/${suggestion.id}/comments`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -71,7 +71,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     
     try {
       const response = await axios.post(
-        `http://localhost:5555/api/suggestion/${suggestion.id}/comments`, 
+        `http://localhost:5555/api/comment/${suggestion.id}/comments`, 
         { text: commentText },
         {
           headers: {
@@ -107,7 +107,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     
     try {
       await axios.delete(
-        `http://localhost:5555/api/suggestion/${suggestion.id}/comments/${commentId}`,
+        `http://localhost:5555/api/comment/${suggestion.id}/comments/${commentId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -253,7 +253,9 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
         onSubmit(response.data.suggestion);
 
         setTitle('');
-        setSuggestions([...suggestions, ...response.data.suggestion]);
+        // setSuggestions([...suggestions, ...response.data.suggestion]);
+        window.location.reload();
+
         // setDescription('');
         // setMunicipality('');
         // setWardNumber('');
@@ -371,7 +373,9 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
         headers: { Authorization: `Bearer ${token}` },
       });
       showMessage("Suggestion deleted successfully");
-      onDelete(suggestion.id);
+      // onDelete(suggestion.id);
+      window.location.reload();
+
     } catch (error) {
       showMessage(error.response?.data?.message || "Failed to delete suggestion", "error");
     }
@@ -384,15 +388,22 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
       return;
     }
     try {
+      console.log('object')
       await axios.put(
         `http://localhost:5555/api/suggestion/${suggestion.id}`,
         { title: updatedTitle, description: updatedDescription },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      onUpdate(suggestion.id, { title: updatedTitle, description: updatedDescription });
+      console.log('object11')
+      // onUpdate(suggestion.id, { title: updatedTitle, description: updatedDescription });
+      console.log('object000')
+      window.location.reload();
+
       showMessage("Suggestion updated successfully");
+      console.log('object878')
       setShowUpdateForm(false);
     } catch (error) {
+      console.log('object12')
       showMessage(error.response?.data?.message || "Failed to update suggestion", "error");
     }
   };
@@ -507,7 +518,8 @@ console.log(suggestion)
             <p className="text-gray-700 my-2">{suggestion.description}</p>
             <div className='flex gap-2'>
 
- <button 
+ 
+            <button 
               className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
               onClick={() => onUpvote(suggestion)}
               >

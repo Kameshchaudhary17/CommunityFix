@@ -48,7 +48,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5555/api/suggestion/${suggestion.id}/comments`, {
+      const response = await axios.get(`http://localhost:5555/api/comment/${suggestion.id}/comments`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -71,7 +71,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     
     try {
       const response = await axios.post(
-        `http://localhost:5555/api/suggestion/${suggestion.id}/comments`, 
+        `http://localhost:5555/api/comment/${suggestion.id}/comments`, 
         { text: commentText },
         {
           headers: {
@@ -107,7 +107,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     
     try {
       await axios.delete(
-        `http://localhost:5555/api/suggestion/${suggestion.id}/comments/${commentId}`,
+        `http://localhost:5555/api/comment/${suggestion.id}/comments/${commentId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`

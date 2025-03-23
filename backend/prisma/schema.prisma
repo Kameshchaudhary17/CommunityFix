@@ -71,6 +71,7 @@ model reports {
   createdAt     DateTime     @default(now())
   user_id       Int
   user          users        @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  upvotes       Upvote[]
 }
 
 // New enum for report status
@@ -117,16 +118,19 @@ model Comment {
 model Upvote {
   id           Int       @id @default(autoincrement())
   userId       Int
-  suggestionId Int
+  suggestionId Int?      // Keep nullable for flexibility
+  reportId     Int?      // Step 1: Make it optional first
   createdAt    DateTime  @default(now())
 
   // Relations
-  user        users      @relation(fields: [userId], references: [user_id], onDelete: Cascade)
-  suggestion  Suggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  user        users       @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+  suggestion  Suggestion? @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  report      reports?    @relation(fields: [reportId], references: [report_id], onDelete: Cascade)
 
-  // Ensure a user can only upvote a suggestion once
   @@unique([userId, suggestionId])
+  @@unique([userId, reportId])
 }
+
 
 enum Status {
   Pending

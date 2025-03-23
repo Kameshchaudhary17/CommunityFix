@@ -99,7 +99,7 @@ const Home = () => {
       const token = localStorage.getItem('token');
       
       // Call your API to record the upvote
-      const response = await fetch(`http://localhost:5555/api/report/upvote/${reportId}`, {
+      const response = await fetch(`http://localhost:5555/api/upvote/${reportId.id}/upvote`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

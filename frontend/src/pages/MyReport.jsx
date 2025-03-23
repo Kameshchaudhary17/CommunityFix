@@ -219,15 +219,15 @@ const MyReport = () => {
               <div className="grid grid-cols-1 gap-6">
                 {filteredSuggestions.map((report) => (
                   <div 
-                    key={report.report_id} 
+                    key={report.user.report_id} 
                     className="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
                   >
                     <div className="p-5">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
-                          {report.photo ? (
+                          {report.user.profilePicture ? (
                             <img
-                              src={report.photo}
+                              src={`http://localhost:5555/${report.user.profilePicture}`}
                               alt={report.title}
                               className="w-12 h-12 rounded-full object-cover border border-gray-200"
                             />

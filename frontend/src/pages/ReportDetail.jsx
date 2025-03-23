@@ -203,37 +203,55 @@ const ReportDetail = () => {
     
   }, [reportId]);
 
-  const handleUpvote = () => {
-    // If already upvoted, do nothing
-    if (isUpvoted) return;
-
-    // Update local state for upvote count and status
-    setUpvoteCount(prevCount => prevCount + 1);
-    setIsUpvoted(true);
-
-    // Save to localStorage to persist the upvote
-    const upvotedReports = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
-    upvotedReports.push(parseInt(reportId));
-    localStorage.setItem('upvotedReports', JSON.stringify(upvotedReports));
-    
-    // Attempt to update upvote on the server (optional)
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        axios.post(`http://localhost:5555/api/report/upvote/${reportId}`, {}, {
+  const handleUpvote = async (reportId) => {
+    try {
+      // Cache the current state before the API call
+      const wasUpvoted = reportId.hasUserUpvoted;
+      
+      // Call the upvote API
+      const response = await axios.post(
+        `http://localhost:5555/api/upvote/${reportId.id}/upvote`,
+        {},
+        {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Authorization': `Bearer ${token}`
           }
-        }).then(response => {
-          console.log('Upvote registered on server:', response.data);
-        }).catch(err => {
-          console.error('Failed to register upvote on server:', err);
-          // Still keep local state updated even if server update fails
-        });
-      } catch (error) {
-        console.error('Error sending upvote request:', error);
+        }
+      );
+      
+      console.log('Upvote API response:', response.data);
+      
+      // Optimistic update - Toggle the state and update count immediately 
+      setSuggestions(suggestions.map(s => {
+        if (s.id === reportId.id) {
+          const newCount = wasUpvoted 
+            ? (parseInt(s.upvoteCount) || 0) - 1 
+            : (parseInt(s.upvoteCount) || 0) + 1;
+            
+          return {
+            ...s,
+            upvoteCount: newCount,
+            hasUserUpvoted: !wasUpvoted
+          };
+        }
+        return s;
+      }));
+      
+      // Show appropriate message based on the new state
+      if (!wasUpvoted) {
+        toast.success('Upvoted reportId');
+      } else {
+        toast.success('Removed upvote');
       }
+      
+      
+    } catch (error) {
+      console.error('Error managing upvote:', error);
+      
+      // Revert the optimistic update if there was an error
+      toast.error('Failed to process your upvote. Please try again.');
+      // Refresh data from server to ensure UI is in sync
+      await fetchSuggestions();
     }
   };
 
@@ -303,7 +321,7 @@ const ReportDetail = () => {
                       <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
                         <div className="flex items-center">
                           <Calendar size={16} className="mr-1" />
-                          <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                          <span>{new Date(report.createdAt).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center">
                           <User size={16} className="mr-1" />

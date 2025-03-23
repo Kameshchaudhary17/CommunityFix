@@ -19,11 +19,10 @@ import axios from 'axios';
 const SuggestionManagement = () => {
   // Sample suggestion data
   const [suggestions, setSuggestions] = useState([]);
-const [loading, setLoading] = useState(false)
-const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
-
-const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token');
 
   const fetchSuggestions = async () => {
     setLoading(true);
@@ -50,9 +49,9 @@ const token = localStorage.getItem('token');
     }
   };
 
-   useEffect(() => {
-      fetchSuggestions();
-    }, []);
+  useEffect(() => {
+    fetchSuggestions();
+  }, []);
 
 
   // State for filters and sorting
@@ -78,21 +77,45 @@ const token = localStorage.getItem('token');
   };
 
   // Update suggestion status
-  const handleStatusChange = (id, newStatus) => {
+  const handleStatusChange = async (id, newStatus) => {
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setSuggestions(suggestions.map(suggestion => 
-        suggestion.id === id ? { 
-          ...suggestion, 
-          status: newStatus,
-          lastUpdate: new Date().toISOString().split('T')[0].replace(/-/g, '/')
-        } : suggestion
-      ));
+    try {
+      const response = await axios.put(
+        `http://localhost:5555/api/suggestion/${id}`, 
+        { status: newStatus },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.success) {
+        // Update local state with new status
+        setSuggestions(suggestions.map(suggestion => 
+          suggestion.id === id ? { 
+            ...suggestion, 
+            status: newStatus,
+            lastUpdate: new Date().toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            }).replace(/\//g, '/')
+          } : suggestion
+        ));
+        
+        toast.success(`Suggestion status updated to ${newStatus.replace('_', ' ')}`);
+      } else {
+        throw new Error('Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating suggestion status:', error);
+      toast.error('Failed to update suggestion status');
+    } finally {
       setIsLoading(false);
-      toast.success(`Suggestion status updated to ${newStatus.replace('_', ' ')}`);
-    }, 800);
+    }
   };
 
   // Filter suggestions based on status
@@ -185,223 +208,246 @@ const token = localStorage.getItem('token');
               </button>
             </div>
 
+            {/* Loading State */}
+            {loading && (
+              <div className="flex justify-center items-center py-10">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+                <p className="ml-3 text-gray-600">Loading suggestions...</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && !loading && (
+              <div className="bg-red-50 text-red-700 p-4 rounded-md mb-6">
+                <div className="flex">
+                  <X className="h-5 w-5 mr-2" />
+                  <span>{error}</span>
+                </div>
+                <button 
+                  onClick={fetchSuggestions}
+                  className="mt-2 text-sm text-red-700 underline focus:outline-none"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+
             {/* Suggestions Table */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {/* Title Column */}
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('title')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Title</span>
-                          {sortConfig.key === 'title' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      
-                      {/* Description */}
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      
-                      {/* Submitted Date */}
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('submittedDate')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Submitted Date</span>
-                          {sortConfig.key === 'submittedDate' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      
-                      {/* Status */}
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('status')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Status</span>
-                          {sortConfig.key === 'status' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      
-                      {/* Last Update */}
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('lastUpdate')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Last Update</span>
-                          {sortConfig.key === 'lastUpdate' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      
-                      {/* Upvotes */}
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('upvoteCount')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Upvotes</span>
-                          {sortConfig.key === 'upvoteCount' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      
-                      {/* Actions */}
-                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {sortedSuggestions.map((suggestion) => (
-                      <tr key={suggestion.id} className="hover:bg-gray-50">
-                        {/* Title */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{suggestion.title}</div>
-                        </td>
+            {!loading && !error && (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {/* Title Column */}
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('title')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Title</span>
+                            {sortConfig.key === 'title' && (
+                              sortConfig.direction === 'asc' ? 
+                              <ChevronUp className="h-4 w-4" /> : 
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </div>
+                        </th>
                         
                         {/* Description */}
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-500 max-w-xs">
-                            {truncateText(suggestion.description, 100)}
-                          </div>
-                        </td>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Description
+                        </th>
                         
                         {/* Submitted Date */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {suggestion.submittedDate}
-                        </td>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('submittedDate')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Submitted Date</span>
+                            {sortConfig.key === 'submittedDate' && (
+                              sortConfig.direction === 'asc' ? 
+                              <ChevronUp className="h-4 w-4" /> : 
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </div>
+                        </th>
                         
                         {/* Status */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full items-center ${getStatusBadge(suggestion.status).className}`}>
-                            {getStatusBadge(suggestion.status).icon}
-                            {suggestion.status.replace('_', ' ')}
-                          </span>
-                        </td>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('status')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Status</span>
+                            {sortConfig.key === 'status' && (
+                              sortConfig.direction === 'asc' ? 
+                              <ChevronUp className="h-4 w-4" /> : 
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </div>
+                        </th>
                         
                         {/* Last Update */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {suggestion.lastUpdate}
-                        </td>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('lastUpdate')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Last Update</span>
+                            {sortConfig.key === 'lastUpdate' && (
+                              sortConfig.direction === 'asc' ? 
+                              <ChevronUp className="h-4 w-4" /> : 
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </div>
+                        </th>
                         
                         {/* Upvotes */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <ThumbsUp className="h-4 w-4 text-blue-500 mr-2" />
-                            <span className="text-sm font-medium text-gray-900">{suggestion.upvoteCount}</span>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => handleSort('upvoteCount')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Upvotes</span>
+                            {sortConfig.key === 'upvoteCount' && (
+                              sortConfig.direction === 'asc' ? 
+                              <ChevronUp className="h-4 w-4" /> : 
+                              <ChevronDown className="h-4 w-4" />
+                            )}
                           </div>
-                        </td>
+                        </th>
                         
                         {/* Actions */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                          <div className="flex items-center justify-center space-x-2">
-                            {/* View Details Button */}
-                            <button
-                              onClick={() => handleViewSuggestion(suggestion)}
-                              className="p-1.5 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 flex items-center"
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            
-                            {/* Status Update Dropdown */}
-                            <select
-                              className="px-3 py-1.5 border rounded-md bg-gray-100 text-sm"
-                              value={suggestion.status}
-                              onChange={(e) => handleStatusChange(suggestion.id, e.target.value)}
-                              disabled={isLoading}
-                            >
-                              <option value="Pending">Pending</option>
-                              <option value="In_Progress">In Progress</option>
-                              <option value="Approved">Approved</option>
-                              <option value="Rejected">Rejected</option>
-                            </select>
-                          </div>
-                        </td>
+                        <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                    
-                    {/* Empty state */}
-                    {sortedSuggestions.length === 0 && (
-                      <tr>
-                        <td colSpan="7" className="px-6 py-10 text-center text-gray-500">
-                          <p className="text-lg">No suggestions found</p>
-                          <p className="text-sm mt-2">Try adjusting your filter settings</p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Basic pagination */}
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">1</span> to <span className="font-medium">{sortedSuggestions.length}</span> of{' '}
-                      <span className="font-medium">{sortedSuggestions.length}</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <a
-                        href="#"
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <ChevronDown className="h-5 w-5 transform rotate-90" />
-                      </a>
-                      <a
-                        href="#"
-                        aria-current="page"
-                        className="z-10 bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium"
-                      >
-                        1
-                      </a>
-                      <a
-                        href="#"
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                      >
-                        <span className="sr-only">Next</span>
-                        <ChevronDown className="h-5 w-5 transform -rotate-90" />
-                      </a>
-                    </nav>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {sortedSuggestions.map((suggestion) => (
+                        <tr key={suggestion.id} className="hover:bg-gray-50">
+                          {/* Title */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{suggestion.title}</div>
+                          </td>
+                          
+                          {/* Description */}
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-500 max-w-xs">
+                              {truncateText(suggestion.description, 100)}
+                            </div>
+                          </td>
+                          
+                          {/* Submitted Date */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {suggestion.submittedDate}
+                          </td>
+                          
+                          {/* Status */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full items-center ${getStatusBadge(suggestion.status).className}`}>
+                              {getStatusBadge(suggestion.status).icon}
+                              {suggestion.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          
+                          {/* Last Update */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {suggestion.lastUpdate}
+                          </td>
+                          
+                          {/* Upvotes */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <ThumbsUp className="h-4 w-4 text-blue-500 mr-2" />
+                              <span className="text-sm font-medium text-gray-900">{suggestion.upvoteCount}</span>
+                            </div>
+                          </td>
+                          
+                          {/* Actions */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                            <div className="flex items-center justify-center space-x-2">
+                              {/* View Details Button */}
+                              <button
+                                onClick={() => handleViewSuggestion(suggestion)}
+                                className="p-1.5 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 flex items-center"
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              
+                              {/* Status Update Dropdown */}
+                              <select
+                                className="px-3 py-1.5 border rounded-md bg-gray-100 text-sm"
+                                value={suggestion.status}
+                                onChange={(e) => handleStatusChange(suggestion.id, e.target.value)}
+                                disabled={isLoading}
+                              >
+                                <option value="Pending">Pending</option>
+                                <option value="In_Progress">In Progress</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Rejected">Rejected</option>
+                              </select>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      
+                      {/* Empty state */}
+                      {sortedSuggestions.length === 0 && (
+                        <tr>
+                          <td colSpan="7" className="px-6 py-10 text-center text-gray-500">
+                            <p className="text-lg">No suggestions found</p>
+                            <p className="text-sm mt-2">Try adjusting your filter settings</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Basic pagination */}
+                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing <span className="font-medium">1</span> to <span className="font-medium">{sortedSuggestions.length}</span> of{' '}
+                        <span className="font-medium">{sortedSuggestions.length}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button
+                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        >
+                          <span className="sr-only">Previous</span>
+                          <ChevronDown className="h-5 w-5 transform rotate-90" />
+                        </button>
+                        <button
+                          aria-current="page"
+                          className="z-10 bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium"
+                        >
+                          1
+                        </button>
+                        <button
+                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        >
+                          <span className="sr-only">Next</span>
+                          <ChevronDown className="h-5 w-5 transform -rotate-90" />
+                        </button>
+                      </nav>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </main>
       </div>

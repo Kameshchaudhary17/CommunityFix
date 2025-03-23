@@ -465,28 +465,32 @@ const getUsers = async (req, res) => {
 const getMunicipalityUsers = async (req, res) => {
     try {
         // Assuming req.user contains the authenticated user's data (set by auth middleware)
-        const{ id, role} = req.user;
-        console.log(id, role)
-
-
-        const municipalitydetails = await prisma.users.findUnique({
-            where: {
-                user_id: id
-            }
-        })
+        const { id, role } = req.user;
+        console.log(id, role);
 
         // Municipality admin should only see users in their jurisdiction
         if (role !== 'MUNICIPALITY') {
-            return res.status(403).json({ 
-                error: "Access denied. Only municipality admins can access this endpoint." 
+            return res.status(403).json({
+                error: "Access denied. Only municipality admins can access this endpoint."
             });
         }
 
-        // Query users with the same municipality and ward number
+        // Get municipality details of the logged-in admin
+        const municipalitydetails = await prisma.users.findUnique({
+            where: { user_id: id },
+            select: { municipality: true, wardNumber: true }
+        });
+
+        if (!municipalitydetails) {
+            return res.status(404).json({ error: "Municipality details not found." });
+        }
+
+        // Query users with the same municipality and ward number, only if role is USER
         const users = await prisma.users.findMany({
             where: {
                 municipality: municipalitydetails.municipality,
-                wardNumber: municipalitydetails.wardNumber
+                wardNumber: municipalitydetails.wardNumber,
+                role: "USER" // ✅ Ensure only users with role "USER" are retrieved
             },
             select: {
                 user_id: true,
@@ -501,20 +505,20 @@ const getMunicipalityUsers = async (req, res) => {
                 isActive: true,
                 createdAt: true,
                 citizenshipPhoto: true
-                
             }
         });
 
         return res.status(200).json({
             message: "Users in your jurisdiction retrieved successfully.",
             count: users.length,
-            users: users
+            users
         });
     } catch (error) {
         console.error('Get municipality users error:', error);
         return res.status(500).json({ error: "Internal server error." });
     }
 };
+
 
 const getMunicipality = async (req, res) => {
     try {

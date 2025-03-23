@@ -439,7 +439,6 @@ const UserManagement = () => {
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">{user.user_name}</div>
-                              <div className="text-sm text-gray-500">{user.citizenshipNumber || 'No Citizenship Number'}</div>
                             </div>
                           </div>
                         </td>
