@@ -239,9 +239,20 @@ const SignupPage = () => {
                   />
                 </label>
               </div>
-              {formData.profilePicture && (
-                <p className="mt-1 text-sm text-gray-500">{formData.profilePicture.name}</p>
-              )}
+              {formData.profilePicture && formData.profilePicture.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">Selected Profile Picture:</p>
+                    <div className="flex gap-2 mt-2">
+                        <img 
+                          key={index} 
+                          src={URL.createObjectURL(file)} 
+                          alt={`profilePicture`} 
+                          className="w-20 h-20 object-cover rounded-md shadow"
+                        />
+                      
+                    </div>
+                  </div>
+                )}
             </div>
 
             {/* Upload Citizenship Photo */}

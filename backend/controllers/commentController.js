@@ -33,7 +33,8 @@ exports.addComment = async (req, res) => {
         include: {
           user: {
             select: {
-              user_name: true
+              user_name: true,
+              profilePicture: true
             }
           }
         }
@@ -74,8 +75,10 @@ exports.getComments = async (req, res) => {
         include: {
           user: {
             select: {
+              
               user_name: true,
-              user_id: true
+              user_id: true,
+              profilePicture: true
             }
           }
         },

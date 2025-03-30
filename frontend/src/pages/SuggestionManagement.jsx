@@ -82,7 +82,7 @@ const SuggestionManagement = () => {
     
     try {
       const response = await axios.put(
-        `http://localhost:5555/api/suggestion/${id}`, 
+        `http://localhost:5555/api/suggestion/status`, 
         { status: newStatus },
         {
           headers: {

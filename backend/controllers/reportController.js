@@ -301,6 +301,51 @@ const getSingleUserReport = async (req, res) => {
   }
 };
 
+const updateReportStatus = async (req, res) => {
+  try {
+    const { reportId, status } = req.body;
+    const requestingUser = req.user;
+    
+    // Check if requesting user is a municipality
+    if (requestingUser.role !== 'MUNICIPALITY' && requestingUser.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Unauthorized. Only municipality or admin can change report status.' });
+    }
+    
+    // Get report to check municipality and ward
+    const report = await prisma.reports.findUnique({
+      where: { report_id: parseInt(reportId) }
+    });
+    
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+    
+    // Municipality can only update reports in their municipality and ward
+    if (requestingUser.role === 'MUNICIPALITY' && 
+        (report.municipality !== requestingUser.municipality || 
+         report.wardNumber !== requestingUser.wardNumber)) {
+      return res.status(403).json({ 
+        message: 'You can only update reports in your municipality and ward' 
+      });
+    }
+    
+    // Update report status
+    const updatedReport = await prisma.reports.update({
+      where: { report_id: parseInt(reportId) },
+      data: { status }
+    });
+    
+    res.status(200).json({ 
+      message: `Report status updated to ${status}`,
+      report: updatedReport
+    });
+  } catch (error) {
+    console.error('Update report status error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
 module.exports = {
   createReport,
   getAllReports,
@@ -308,5 +353,6 @@ module.exports = {
   updateReport,
   deleteReport,
   getUserReports,
-  getSingleUserReport
+  getSingleUserReport,
+  updateReportStatus
 };

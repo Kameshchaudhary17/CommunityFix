@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X, Eye, Search, Filter, ChevronDown, ChevronUp, RefreshCw, UserPlus } from 'lucide-react';
+import { Check, X, Eye, Search, Filter, ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
 import Header from '../components/Header';
 import { toast, Toaster } from 'react-hot-toast';
 import MunicipalitySidebar from '../components/MunicipalitySidebar';
@@ -14,38 +14,40 @@ const UserManagement = () => {
   // State for search, filters, and sorting
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [sortConfig, setSortConfig] = useState({ key: 'registeredDate', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   const [isUserDetailOpen, setIsUserDetailOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   // Fetch users from API
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        
-        const response = await axios.get('http://localhost:5555/api/auth/getmunicipalityuser', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        if (response.data && response.data.users) {
-          setUsers(response.data.users);
-        } else {
-          setUsers([]);
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.get('http://localhost:5555/api/auth/getmunicipalityuser', {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching users:', err);
-        setError('Failed to fetch users. Please try again later.');
-        setLoading(false);
-        toast.error('Error fetching users');
+      });
+      
+      if (response.data && response.data.users) {
+        setUsers(response.data.users);
+      } else {
+        setUsers([]);
       }
-    };
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError('Failed to fetch users. Please try again later.');
+      setLoading(false);
+      toast.error('Error fetching users');
+    }
+  };
 
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -74,90 +76,84 @@ const UserManagement = () => {
     setIsUserDetailOpen(true);
   };
 
-  // Approve user
+  // Update user status functions
+  const updateUserStatus = async (userId, status) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`http://localhost:5555/api/auth/verify-status`, 
+        { userId, status },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Refresh the user list after updating status
+      await fetchUsers();
+      
+      setIsLoading(false);
+      toast.success(`User ${status.toLowerCase()}ed successfully`);
+      return response.data;
+    } catch (err) {
+      setError(err.response?.data?.message || `Failed to ${status.toLowerCase()} user`);
+      setIsLoading(false);
+      toast.error(`Failed to ${status.toLowerCase()} user`);
+      throw err;
+    }
+  };
+
+  // Handler functions for the status update operations
   const handleApproveUser = async (userId) => {
-    try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await axios.put(`http://localhost:5555/api/auth/municipalityuser/${userId}/approve`, 
-        { isVerified: true },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      
-      // Update local state
-      setUsers(users.map(user => 
-        user.user_id === userId ? { ...user, status: 'Approved' } : user
-      ));
-      
-      setIsLoading(false);
-      toast.success('User approved successfully');
-    } catch (err) {
-      console.error('Error approving user:', err);
-      setIsLoading(false);
-      toast.error('Failed to approve user');
-    }
+    return updateUserStatus(userId, "ACCEPT");
   };
 
-  // Reject user
   const handleRejectUser = async (userId) => {
-    try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await axios.put(`http://localhost:5555/api/auth/municipalityuser/${userId}/reject`, 
-        { isVerified: false },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      
-      // Update local state
-      setUsers(users.map(user => 
-        user.user_id === userId ? { ...user, status: 'Rejected' } : user
-      ));
-      
-      setIsLoading(false);
-      toast.success('User rejected');
-    } catch (err) {
-      console.error('Error rejecting user:', err);
-      setIsLoading(false);
-      toast.error('Failed to reject user');
-    }
+    return updateUserStatus(userId, "REJECT");
   };
 
-  // Reset user status to pending
   const handleResetStatus = async (userId) => {
+    return updateUserStatus(userId, "PENDING");
+  };
+
+  // Delete user
+  const openDeleteConfirm = (user) => {
+    setUserToDelete(user);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
     try {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await axios.put(`http://localhost:5555/api/auth/municipalityuser/${userId}/reset`, 
-        { isVerified: null },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      await axios.delete(`http://localhost:5555/api/auth/users/${userToDelete.user_id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
+      });
       
-      // Update local state
-      setUsers(users.map(user => 
-        user.user_id === userId ? { ...user, status: 'Pending' } : user
-      ));
+      // Refresh the user list
+      await fetchUsers();
       
+      setIsDeleteConfirmOpen(false);
+      setUserToDelete(null);
       setIsLoading(false);
-      toast.success('User status reset to pending');
+      toast.success('User deleted successfully');
+      
+      // If the deleted user is currently being viewed, close the detail modal
+      if (isUserDetailOpen && selectedUser && selectedUser.user_id === userToDelete.user_id) {
+        setIsUserDetailOpen(false);
+      }
     } catch (err) {
-      console.error('Error resetting user status:', err);
+      console.error('Error deleting user:', err);
       setIsLoading(false);
-      toast.error('Failed to reset user status');
+      toast.error('Failed to delete user');
     }
   };
 
@@ -165,14 +161,11 @@ const UserManagement = () => {
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.citizenshipNumber?.includes(searchTerm) ||
       user.contact?.includes(searchTerm);
     
-    const userStatus = user.isVerified === true ? 'Approved' : 
-                      user.isVerified === false ? 'Rejected' : 'Pending';
-    
-    const matchesStatus = statusFilter === 'All' || userStatus === statusFilter;
+    const matchesStatus = statusFilter === 'All' || getStatusText(user.isVerified) === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
@@ -193,18 +186,17 @@ const UserManagement = () => {
 
   // Get status badge class
   const getStatusBadgeClass = (isVerified) => {
-    if (isVerified === "PENDING") return 'bg-yellow-100 text-white-800';
-    if (isVerified === "ACCEPT") return 'bg-green-100 text-black-800';
+    if (isVerified === "PENDING") return 'bg-yellow-100 text-yellow-800';
+    if (isVerified === "ACCEPT") return 'bg-green-100 text-green-800';
     if (isVerified === "REJECT") return 'bg-red-100 text-red-800';
     return 'bg-yellow-100 text-yellow-800';
   };
 
-  console.log(sortedUsers)
-
   // Get status text
   const getStatusText = (isVerified) => {
     if (isVerified === "PENDING") return 'Pending';
-    if (isVerified === "ACCEPT") return 'Accepted';
+    if (isVerified === "ACCEPT") return 'Approved';
+    if (isVerified === "REJECT") return 'Rejected';
     return 'Pending';
   };
 
@@ -515,6 +507,16 @@ const UserManagement = () => {
                                 <RefreshCw className="h-4 w-4" />
                               </button>
                             )}
+
+                            {/* Delete User Button - Always visible */}
+                            <button
+                              onClick={() => openDeleteConfirm(user)}
+                              disabled={isLoading}
+                              className="p-1.5 bg-red-100 text-red-600 rounded-md hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete User"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -637,7 +639,7 @@ const UserManagement = () => {
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Date of Birth</h4>
                         <p className="font-medium text-gray-900">
-                          {selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString('en-US', {
+                          {selectedUser.dob ? new Date(selectedUser.dob).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
@@ -660,77 +662,121 @@ const UserManagement = () => {
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Municipality</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.municipality || 'Not Specified'}</p>
+                        <p className="font-medium text-gray-900">{selectedUser.municipality || 'Not specified'}</p>
                       </div>
                       
                       <div>
-                        <h4 className="text-xs font-medium text-gray-500">Ward No.</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.wardNumber || 'N/A'}</p>
-                      </div>
-                      
-                      <div>
-                        <h4 className="text-xs font-medium text-gray-500">Citizenship Number</h4>
-                        <p className="font-medium text-gray-900">{selectedUser.citizenshipNumber || 'Not Provided'}</p>
+                        <h4 className="text-xs font-medium text-gray-500">Ward Number</h4>
+                        <p className="font-medium text-gray-900">{selectedUser.wardNumber || 'Not specified'}</p>
                       </div>
                       
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Status</h4>
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(selectedUser.isVerified)}`}>{getStatusText(selectedUser.isVerified)}
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5font-semibold rounded-full ${getStatusBadgeClass(selectedUser.isVerified)}`}>
+                          {getStatusText(selectedUser.isVerified)}
                         </span>
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Action buttons */}
+                  <div className="mt-8 flex flex-wrap gap-3">
+                    {selectedUser.isVerified === "PENDING" && (
+                      <>
+                        <button
+                          onClick={() => {
+                            handleApproveUser(selectedUser.user_id)
+                              .then(() => setIsUserDetailOpen(false));
+                          }}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          Approve User
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleRejectUser(selectedUser.user_id)
+                              .then(() => setIsUserDetailOpen(false));
+                          }}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Reject User
+                        </button>
+                      </>
+                    )}
+                    
+                    {(selectedUser.isVerified === "ACCEPT" || selectedUser.isVerified === "REJECT") && (
+                      <button
+                        onClick={() => {
+                          handleResetStatus(selectedUser.user_id)
+                            .then(() => setIsUserDetailOpen(false));
+                        }}
+                        disabled={isLoading}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Reset Status
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => {
+                        setIsUserDetailOpen(false);
+                        openDeleteConfirm(selectedUser);
+                      }}
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete User
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-              {selectedUser.isVerified === null && (
-                <>
-                  <button
-                    onClick={() => {
-                      handleApproveUser(selectedUser.user_id);
-                      setIsUserDetailOpen(false);
-                    }}
-                    disabled={isLoading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    <Check className="h-4 w-4" />
-                    Approve User
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleRejectUser(selectedUser.user_id);
-                      setIsUserDetailOpen(false);
-                    }}
-                    disabled={isLoading}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    Reject User
-                  </button>
-                </>
-              )}
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {isDeleteConfirmOpen && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-medium text-gray-900">Confirm Deletion</h3>
+            </div>
+            
+            <div className="px-6 py-4">
+              <div className="flex items-center justify-center">
+                <div className="rounded-full bg-red-100 p-3 text-red-500">
+                  <Trash2 className="h-6 w-6" />
+                </div>
+              </div>
               
-              {(selectedUser.isVerified === true || selectedUser.isVerified === false) && (
-                <button
-                  onClick={() => {
-                    handleResetStatus(selectedUser.user_id);
-                    setIsUserDetailOpen(false);
-                  }}
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Reset Status
-                </button>
-              )}
-              
+              <p className="mt-4 text-center text-gray-700">
+                Are you sure you want to delete the user <strong>{userToDelete.user_name}</strong>? This action cannot be undone.
+              </p>
+            </div>
+            
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3">
               <button
-                onClick={() => setIsUserDetailOpen(false)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
               >
-                Close
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={isLoading}
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {isLoading && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                )}
+                Delete User
               </button>
             </div>
           </div>

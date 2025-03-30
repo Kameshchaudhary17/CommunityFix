@@ -85,7 +85,7 @@ const LoginPage = () => {
                 htmlFor="user_email" 
                 className="block text-sm font-medium text-gray-700"
               >
-                user_email or email
+                Email
               </label>
               <input
                 type="text"

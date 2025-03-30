@@ -15,6 +15,7 @@ router.get('/getuserbylocation', authMiddleware.authenticateUser, authController
 router.get('/municipalityuser', authMiddleware.authenticateUser, authController.getMunicipality)
 router.get('/getmunicipalityuser', authMiddleware.authenticateUser, authController.getMunicipalityUsers)
 router.put('/users/:user_id', authController.uploadFields, authController.updateUser);
+router.post('/verify-status', authController.updateUserVerificationStatus);
 router.delete('/users/:user_id', authMiddleware.authenticateUser, authController.deleteUser)
 
 module.exports = router;

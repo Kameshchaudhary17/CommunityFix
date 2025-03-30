@@ -498,6 +498,7 @@ const getMunicipalityUsers = async (req, res) => {
                 user_email: true,
                 contact: true,
                 role: true,
+                dob:true,
                 municipality: true,
                 wardNumber: true,
                 profilePicture: true,
@@ -517,6 +518,75 @@ const getMunicipalityUsers = async (req, res) => {
         console.error('Get municipality users error:', error);
         return res.status(500).json({ error: "Internal server error." });
     }
+};
+
+const updateUserVerificationStatus = async (req, res) => {
+  try {
+    const { userId, status } = req.body;
+    const requestingUserId = req.user.userId;
+
+    // Validate required fields
+    if (!userId || !status) {
+      return res.status(400).json({ message: "User ID and status are required" });
+    }
+
+    // Ensure status is a valid ENUM value
+    const validStatuses = ["PENDING", "ACCEPT", "REJECT"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    // Fetch the requesting user
+    const requestingUser = await prisma.users.findUnique({
+      where: { user_id: requestingUserId },
+    });
+
+    if (!requestingUser) {
+      return res.status(403).json({ message: "Unauthorized: User not found" });
+    }
+
+    if (requestingUser.role !== "MUNICIPALITY" && requestingUser.role !== "ADMIN") {
+      return res.status(403).json({
+        message: "Unauthorized: Only municipality or admin can change user status",
+      });
+    }
+
+    // Fetch the user to be updated
+    const userToUpdate = await prisma.users.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!userToUpdate) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Municipality users can only update users within their own area
+    if (
+      requestingUser.role === "MUNICIPALITY" &&
+      (userToUpdate.municipality !== requestingUser.municipality ||
+        userToUpdate.wardNumber !== requestingUser.wardNumber)
+    ) {
+      return res.status(403).json({
+        message: "You can only update users in your municipality and ward",
+      });
+    }
+
+    // Update user verification status
+    await prisma.users.update({
+      where: { user_id: userId },
+      data: { isVerified: status },
+    });
+
+    return res.status(200).json({
+      message: `User verification status updated to ${status}`,
+    });
+  } catch (error) {
+  console.error("Update user status error:", error);
+  res.status(500).json({ 
+    message: "Internal server error",
+    error: error.message,  // Send error details to frontend for debugging
+  });
+}
 };
 
 
@@ -575,5 +645,6 @@ module.exports = {
     getCurrentUser,
     getUsers,
     getMunicipalityUsers,
-    getMunicipality
+    getMunicipality,
+    updateUserVerificationStatus
 };

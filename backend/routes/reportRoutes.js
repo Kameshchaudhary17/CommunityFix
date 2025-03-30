@@ -12,6 +12,7 @@ const upload = multer({storage : storage})
 
 
 router.post('/createReport',upload.single('photo'), authMiddleware.authenticateUser, reportController.createReport)
+router.post('/status', authMiddleware.authenticateUser, reportController.updateReportStatus)
 router.get('/getReport', authMiddleware.authenticateUser, reportController.getAllReports)
 router.get('/getReportById/:reportId', authMiddleware.authenticateUser, reportController.getReportById)
 router.get('/getsinglereport', authMiddleware.authenticateUser, reportController.getSingleUserReport)

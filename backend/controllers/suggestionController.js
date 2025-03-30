@@ -479,4 +479,50 @@ exports.upvoteSuggestion = async (req, res) => {
   }
 };
 
+exports.updateSuggestionStatus = async (req, res) => {
+  try {
+    const { suggestionId, status } = req.body;
+    const requestingUser = req.user;
+    
+    // Check if requesting user is a municipality
+    if (requestingUser.role !== 'MUNICIPALITY' && requestingUser.role !== 'ADMIN') {
+      return res.status(403).json({ 
+        message: 'Unauthorized. Only municipality or admin can change suggestion status.' 
+      });
+    }
+    
+    // Get suggestion to check municipality and ward
+    const suggestion = await prisma.suggestion.findUnique({
+      where: { id: parseInt(suggestionId) }
+    });
+    
+    if (!suggestion) {
+      return res.status(404).json({ message: 'Suggestion not found' });
+    }
+    
+    // Municipality can only update suggestions in their municipality and ward
+    if (requestingUser.role === 'MUNICIPALITY' && 
+        (suggestion.municipality !== requestingUser.municipality || 
+         suggestion.wardNumber !== requestingUser.wardNumber)) {
+      return res.status(403).json({ 
+        message: 'You can only update suggestions in your municipality and ward' 
+      });
+    }
+    
+    // Update suggestion status
+    const updatedSuggestion = await prisma.suggestion.update({
+      where: { id: parseInt(suggestionId) },
+      data: { status }
+    });
+    
+    res.status(200).json({ 
+      message: `Suggestion status updated to ${status}`,
+      suggestion: updatedSuggestion
+    });
+  } catch (error) {
+    console.error('Update suggestion status error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 

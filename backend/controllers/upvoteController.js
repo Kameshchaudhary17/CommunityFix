@@ -10,7 +10,7 @@ exports.upvoteReport = async (req, res) => {
       // Convert id to an integer
       const reportId = parseInt(id);
       if (isNaN(reportId)) {
-        return res.status(400).json({ message: "Invalid suggestion ID" });
+        return res.status(400).json({ message: "Invalid report ID" });
       }
   
       // Check if user has already upvoted

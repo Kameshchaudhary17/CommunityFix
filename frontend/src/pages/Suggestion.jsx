@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc } from 'lucide-react';
+import {Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc, MoreVertical } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
-import Hearder from '../components/Header';
+import Header from '../components/Header';
 import axios from 'axios';
 import { toast, Toaster } from 'react-hot-toast';
 
@@ -22,13 +22,15 @@ const CommentItem = ({ author, text, time }) => (
 );
 
 // Comment Box Modal
-// Updated CommentBox component for the frontend
 const CommentBox = ({ isOpen, onClose, suggestion }) => {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem('token');
   const [user, setUser] = useState(null);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   useEffect(() => {
     if (isOpen && suggestion) {
@@ -40,6 +42,8 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
+    } else {
+      setOpenMenuId(null);
     }
   }, [isOpen, suggestion]);
 
@@ -102,6 +106,40 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     }
   };
   
+  const handleEditComment = async (commentId) => {
+    if (!editText.trim()) {
+      setEditingCommentId(null);
+      return;
+    }
+    
+    try {
+      const response = await axios.put(
+        `http://localhost:5555/api/comment/${suggestion.id}/comments/${commentId}`,
+        { text: editText },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.comment) {
+        // Update the comment in the list
+        setComments(comments.map(comment => 
+          comment.id === commentId ? { ...comment, text: editText } : comment
+        ));
+        toast.success('Comment updated successfully');
+      }
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      toast.error('Failed to update comment');
+    } finally {
+      setEditingCommentId(null);
+      setOpenMenuId(null);
+    }
+  };
+  
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm('Are you sure you want to delete this comment?')) return;
     
@@ -126,7 +164,19 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     } catch (error) {
       console.error('Error deleting comment:', error);
       toast.error('Failed to delete comment');
+    } finally {
+      setOpenMenuId(null);
     }
+  };
+
+  const startEditComment = (comment) => {
+    setEditingCommentId(comment.id);
+    setEditText(comment.text);
+    setOpenMenuId(null);
+  };
+
+  const toggleCommentMenu = (commentId) => {
+    setOpenMenuId(openMenuId === commentId ? null : commentId);
   };
 
   if (!isOpen) return null;
@@ -159,7 +209,39 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
                       <h4 className="font-medium text-sm">{comment.user?.user_name || 'Anonymous'}</h4>
                       <div className="flex items-center">
                         <span className="text-xs text-gray-500 mr-2">{new Date(comment.createdAt).toLocaleString()}</span>
-                        {user && (user.id === comment.userId || user.role === 'ADMIN') && (
+                        
+                        {/* Show 3-dot menu only for user's own comments */}
+                        {user && (user.id === comment.userId) && (
+                          <div className="relative">
+                            <button 
+                              onClick={() => toggleCommentMenu(comment.id)}
+                              className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                            
+                            {/* Dropdown menu for comment actions */}
+                            {openMenuId === comment.id && (
+                              <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                                <button
+                                  onClick={() => startEditComment(comment)}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-md"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 rounded-b-md"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Admin delete button - separate from the 3-dot menu */}
+                        {user && user.id !== comment.userId && user.role === 'ADMIN' && (
                           <button 
                             onClick={() => handleDeleteComment(comment.id)}
                             className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
@@ -169,7 +251,35 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
                         )}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700">{comment.text}</p>
+                    
+                    {/* Display edit form if editing this comment */}
+                    {editingCommentId === comment.id ? (
+                      <div className="mt-1 mb-2">
+                        <input
+                          type="text"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <div className="flex justify-end mt-2 space-x-2">
+                          <button
+                            onClick={() => setEditingCommentId(null)}
+                            className="px-3 py-1 text-xs text-gray-700 border rounded-md hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleEditComment(comment.id)}
+                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-700">{comment.text}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -214,8 +324,6 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
 const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [municipality, setMunicipality] = useState('');
-  const [wardNumber, setWardNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem('token');
 
@@ -250,8 +358,6 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
         onSubmit(response.data.suggestion);
         setTitle('');
         setDescription('');
-        setMunicipality('');
-        setWardNumber('');
         toast.success('Suggestion created successfully');
       }
     } catch (error) {
@@ -349,8 +455,12 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
         <div className="h-12 w-12 rounded-full overflow-hidden mr-3 flex-shrink-0 border-2 border-gray-200">
           <img 
             src={`http://localhost:5555/${suggestion.user.profilePicture}`}
-            alt={suggestion.user?.user_id || 'User'} 
+            alt={suggestion.user?.user_name || 'User'} 
             className="h-full w-full object-cover" 
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = "/api/placeholder/48/48";
+            }}
           />
         </div>
         
@@ -368,10 +478,6 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
           </div>
           
           <p className="text-gray-700 my-2">{suggestion.description}</p>
-          
-          <div className="text-xs text-gray-500 mb-3">
-            {suggestion.municipality}, Ward {suggestion.wardNumber}
-          </div>
           
           <div className="flex items-center space-x-4">
             <button 
@@ -437,10 +543,7 @@ const Suggestion = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-
-      console.log(response)
       
-      console.log(response.data);
       if (response.data && response.data.suggestions) {
         setSuggestions(response.data.suggestions);
       }
@@ -454,7 +557,33 @@ const Suggestion = () => {
   };
   
   const handleCommentClick = (suggestion) => {
-    setSelectedSuggestion(suggestion);
+    setSelectedSuggestion({
+      ...suggestion,
+      onCommentAdded: () => {
+        // Update the comment count when a comment is added
+        setSuggestions(suggestions.map(s => {
+          if (s.id === suggestion.id) {
+            return {
+              ...s,
+              commentsCount: (parseInt(s.commentsCount) || 0) + 1
+            };
+          }
+          return s;
+        }));
+      },
+      onCommentDeleted: () => {
+        // Update the comment count when a comment is deleted
+        setSuggestions(suggestions.map(s => {
+          if (s.id === suggestion.id) {
+            return {
+              ...s,
+              commentsCount: Math.max((parseInt(s.commentsCount) || 0) - 1, 0)
+            };
+          }
+          return s;
+        }));
+      }
+    });
     setIsCommentBoxOpen(true);
   };
   
@@ -473,8 +602,6 @@ const Suggestion = () => {
           }
         }
       );
-      
-      console.log('Upvote API response:', response.data);
       
       // Optimistic update - Toggle the state and update count immediately 
       setSuggestions(suggestions.map(s => {
@@ -498,10 +625,6 @@ const Suggestion = () => {
       } else {
         toast.success('Removed upvote');
       }
-      
-      // If needed, you can refetch the suggestions to ensure UI is in sync
-      // Uncomment this if you want to ensure perfect sync with backend
-      // await fetchSuggestions();
       
     } catch (error) {
       console.error('Error managing upvote:', error);
@@ -551,7 +674,7 @@ const Suggestion = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <Hearder/>
+        <Header/>
 
         {/* Content area with scrolling */}
         <main className="flex-1 overflow-y-auto p-6">

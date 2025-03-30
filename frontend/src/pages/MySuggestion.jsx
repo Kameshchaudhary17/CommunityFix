@@ -1,19 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import {Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc, MoreVertical, Edit, Trash2, } from 'lucide-react';
+import { Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
-import Hearder from '../components/Header';
+import Header from '../components/Header';
 import axios from 'axios';
 import { toast, Toaster } from 'react-hot-toast';
 
 // Comment Component
-const CommentItem = ({ author, text, time }) => (
+const CommentItem = ({ author, text, time, profilePic, userId, commentId, currentUserId, userRole, onDelete }) => (
   <div className="border-b border-gray-100 py-3">
     <div className="flex items-start">
-      <img src="/api/placeholder/32/32" alt={author} className="w-8 h-8 rounded-full mr-3" />
+      <img src={profilePic} alt={author} className="w-8 h-8 rounded-full mr-3" />
       <div className="flex-1">
         <div className="flex justify-between items-center mb-1">
           <h4 className="font-medium text-sm">{author}</h4>
-          <span className="text-xs text-gray-500">{time}</span>
+          <div className="flex items-center">
+            <span className="text-xs text-gray-500 mr-2">{time}</span>
+            {(currentUserId === userId || userRole === 'ADMIN') && (
+              <button 
+                onClick={() => onDelete(commentId)}
+                className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-sm text-gray-700">{text}</p>
       </div>
@@ -22,18 +32,16 @@ const CommentItem = ({ author, text, time }) => (
 );
 
 // Comment Box Modal
-// Updated CommentBox component for the frontend
 const CommentBox = ({ isOpen, onClose, suggestion }) => {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const token = localStorage.getItem('token');
   const [user, setUser] = useState(null);
-
+  const token = localStorage.getItem('token');
+  
   useEffect(() => {
     if (isOpen && suggestion) {
       fetchComments();
-      // Get current user info from localStorage
       try {
         const userData = JSON.parse(localStorage.getItem('userData'));
         setUser(userData);
@@ -49,9 +57,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     setLoading(true);
     try {
       const response = await axios.get(`http://localhost:5555/api/comment/${suggestion.id}/comments`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (response.data && response.data.comments) {
@@ -82,12 +88,10 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
       );
       
       if (response.data && response.data.comment) {
-        // Add the new comment to the top of the list
         setComments([response.data.comment, ...comments]);
         setCommentText('');
         toast.success('Comment added successfully');
         
-        // Update the comment count in the parent component
         if (suggestion.onCommentAdded) {
           suggestion.onCommentAdded();
         }
@@ -108,18 +112,12 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
     try {
       await axios.delete(
         `http://localhost:5555/api/comment/${suggestion.id}/comments/${commentId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
-      // Remove the deleted comment from the state
       setComments(comments.filter(comment => comment.id !== commentId));
       toast.success('Comment deleted successfully');
       
-      // Update the comment count in the parent component
       if (suggestion.onCommentDeleted) {
         suggestion.onCommentDeleted();
       }
@@ -150,29 +148,19 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
           ) : comments.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No comments yet</div>
           ) : (
-            comments.map((comment, index) => (
-              <div key={comment.id || index} className="border-b border-gray-100 py-3">
-                <div className="flex items-start">
-                  <img src="/api/placeholder/32/32" alt={comment.user?.user_name || 'Anonymous'} className="w-8 h-8 rounded-full mr-3" />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <h4 className="font-medium text-sm">{comment.user?.user_name || 'Anonymous'}</h4>
-                      <div className="flex items-center">
-                        <span className="text-xs text-gray-500 mr-2">{new Date(comment.createdAt).toLocaleString()}</span>
-                        {user && (user.id === comment.userId || user.role === 'ADMIN') && (
-                          <button 
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
-                          >
-                            <X size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-700">{comment.text}</p>
-                  </div>
-                </div>
-              </div>
+            comments.map((comment) => (
+              <CommentItem 
+                key={comment.id} 
+                author={comment.user?.user_name || 'Anonymous'}
+                text={comment.text}
+                time={new Date(comment.createdAt).toLocaleString()}
+                profilePic={`http://localhost:5555/${comment.user.profilePicture}`}
+                userId={comment.userId}
+                commentId={comment.id}
+                currentUserId={user?.id}
+                userRole={user?.role}
+                onDelete={handleDeleteComment}
+              />
             ))
           )}
         </div>
@@ -180,7 +168,7 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
         <form onSubmit={handleSubmitComment} className="border-t p-4">
           <div className="flex items-center">
             <img 
-              src="/api/placeholder/32/32" 
+              src={user?.profilePicture ? `http://localhost:5555/${user.profilePicture}` : "/api/placeholder/32/32"}
               alt="Your avatar" 
               className="w-8 h-8 rounded-full mr-3"
             />
@@ -196,11 +184,9 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
                 type="submit"
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-500 p-1 rounded-full hover:bg-blue-50"
               >
-                <span className="flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
           </div>
@@ -214,19 +200,14 @@ const CommentBox = ({ isOpen, onClose, suggestion }) => {
 const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [municipality, setMunicipality] = useState('');
-  const [wardNumber, setWardNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem('token');
-
-  
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
     if (!title.trim() || !description.trim()) {
       toast.error('Please fill in all required fields');
       return;
@@ -236,10 +217,7 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
     try {
       const response = await axios.post(
         'http://localhost:5555/api/suggestion/createSuggestion',
-        {
-          title,
-          description
-        },
+        { title, description },
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -248,23 +226,17 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
         }
       );
 
-      console.log(response.data.suggestion)
       if (response.data) {
         onSubmit(response.data.suggestion);
-
-        setTitle('');
-        // setSuggestions([...suggestions, ...response.data.suggestion]);
-        window.location.reload();
-
-        // setDescription('');
-        // setMunicipality('');
-        // setWardNumber('');
         toast.success('Suggestion created successfully');
+        window.location.reload();
       }
     } catch (error) {
       console.error('Error creating suggestion:', error);
-      
-    } 
+      toast.error('Failed to create suggestion');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -338,23 +310,14 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updatedTitle, setUpdatedTitle] = useState(suggestion.title);
   const [updatedDescription, setUpdatedDescription] = useState(suggestion.description);
-  const [user, setUser] = useState(null);
-  const [message, setMessage] = useState(null); // Success/Error message
-  const [messageType, setMessageType] = useState(""); // "success" or "error"
-
-  useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    if (storedUser) {
-      setUser(storedUser);
-    }
-  }, []);
-
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState("");
   const token = localStorage.getItem("token");
 
   const showMessage = (msg, type = "success") => {
     setMessage(msg);
     setMessageType(type);
-    setTimeout(() => setMessage(null), 3000); // Auto-hide message after 3s
+    setTimeout(() => setMessage(null), 3000);
   };
 
   const handleUpdateClick = () => {
@@ -368,14 +331,17 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
       showMessage("No token provided", "error");
       return;
     }
+    
+    if (!window.confirm("Are you sure you want to delete this suggestion?")) {
+      return;
+    }
+    
     try {
       await axios.delete(`http://localhost:5555/api/suggestion/${suggestion.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       showMessage("Suggestion deleted successfully");
-      // onDelete(suggestion.id);
       window.location.reload();
-
     } catch (error) {
       showMessage(error.response?.data?.message || "Failed to delete suggestion", "error");
     }
@@ -388,27 +354,19 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
       return;
     }
     try {
-      console.log('object')
       await axios.put(
         `http://localhost:5555/api/suggestion/${suggestion.id}`,
         { title: updatedTitle, description: updatedDescription },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      console.log('object11')
-      // onUpdate(suggestion.id, { title: updatedTitle, description: updatedDescription });
-      console.log('object000')
-      window.location.reload();
-
+      
       showMessage("Suggestion updated successfully");
-      console.log('object878')
       setShowUpdateForm(false);
+      window.location.reload();
     } catch (error) {
-      console.log('object12')
       showMessage(error.response?.data?.message || "Failed to update suggestion", "error");
     }
   };
-
-console.log(suggestion)
 
   return (
     <div className="relative bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
@@ -516,21 +474,19 @@ console.log(suggestion)
             </div>
 
             <p className="text-gray-700 my-2">{suggestion.description}</p>
-            <div className='flex gap-2'>
-
- 
-            <button 
-              className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
-              onClick={() => onUpvote(suggestion)}
+            <div className="flex gap-2">
+              <button 
+                className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                onClick={() => onUpvote(suggestion)}
               >
-              <ThumbsUp size={16} className={`mr-1 ${suggestion.hasUserUpvoted ? 'fill-current' : ''}`} />
-              <span>{suggestion.upvotes.length || 0}</span>
-            </button>
-            <button className="flex items-center text-gray-500 hover:text-blue-600" onClick={() => onCommentClick(suggestion)}>
-              <MessageSquare size={16} className="mr-1" />
-              <span>{suggestion.comments.length || 0}</span>
-            </button>
-              </div>
+                <ThumbsUp size={16} className={`mr-1 ${suggestion.hasUserUpvoted ? 'fill-current' : ''}`} />
+                <span>{suggestion.upvotes?.length || 0}</span>
+              </button>
+              <button className="flex items-center text-gray-500 hover:text-blue-600" onClick={() => onCommentClick(suggestion)}>
+                <MessageSquare size={16} className="mr-1" />
+                <span>{suggestion.comments?.length || 0}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -570,36 +526,28 @@ const Suggestion = () => {
     fetchSuggestions();
   }, []);
 
-  // const user = JSON.parse(localStorage.getItem('user'));
-  // console.log(user)
-
   const fetchSuggestions = async () => {
-
     setLoading(true);
     setError(null);
 
     try {
-        const response = await axios.get(`http://localhost:5555/api/suggestion/getusersuggestion`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+      const response = await axios.get(`http://localhost:5555/api/suggestion/getusersuggestion`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-        if (response.data && response.data.suggestions) {
-            setSuggestions(response.data.suggestions || []);
-        } else {
-            setError('No suggestion found.');
-        }
+      if (response.data && response.data.suggestions) {
+        setSuggestions(response.data.suggestions || []);
+      } else {
+        setError('No suggestions found.');
+      }
     } catch (error) {
-        console.error('Error fetching suggestion:', error);
-        setError('Failed to load suggestion. Please try again.');
-        toast.error('Failed to load suggestion');
+      console.error('Error fetching suggestions:', error);
+      setError('Failed to load suggestions. Please try again.');
+      toast.error('Failed to load suggestions');
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
-
-
   
   const handleCommentClick = (suggestion) => {
     setSelectedSuggestion(suggestion);
@@ -608,50 +556,42 @@ const Suggestion = () => {
   
   const handleUpvote = async (suggestion) => {
     try {
-      // Cache the current state before the API call
       const wasUpvoted = suggestion.hasUserUpvoted;
       
-      // Call the upvote API
-      const response = await axios.post(
+      await axios.post(
         `http://localhost:5555/api/suggestion/${suggestion.id}/upvote`,
         {},
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
-      console.log('Upvote API response:', response.data);
-      
-      // Optimistic update - Toggle the state and update count immediately 
+      // Update the local state to reflect the upvote change
       setSuggestions(suggestions.map(s => {
         if (s.id === suggestion.id) {
-          const newCount = wasUpvoted 
-            ? (parseInt(s.upvoteCount) || 0) - 1 
-            : (parseInt(s.upvoteCount) || 0) + 1;
-            
-          return {
-            ...s,
-            upvoteCount: newCount,
-            hasUserUpvoted: !wasUpvoted
-          };
+          const newUpvotes = [...s.upvotes];
+          if (wasUpvoted) {
+            // Remove user's upvote
+            return {
+              ...s,
+              upvotes: newUpvotes.filter(upvote => upvote.userId !== (JSON.parse(localStorage.getItem('userData'))?.id)),
+              hasUserUpvoted: false
+            };
+          } else {
+            // Add user's upvote
+            newUpvotes.push({ userId: JSON.parse(localStorage.getItem('userData'))?.id });
+            return {
+              ...s,
+              upvotes: newUpvotes,
+              hasUserUpvoted: true
+            };
+          }
         }
         return s;
       }));
       
-      // Show appropriate message based on the new state
-      if (!wasUpvoted) {
-        toast.success('Upvoted suggestion');
-      } else {
-        toast.success('Removed upvote');
-      }
-
-      
+      toast.success(wasUpvoted ? 'Removed upvote' : 'Upvoted suggestion');
     } catch (error) {
       console.error('Error managing upvote:', error);
       toast.error('Failed to process your upvote. Please try again.');
-      await fetchSuggestions();
     }
   };
   
@@ -671,10 +611,8 @@ const Suggestion = () => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Toaster for notifications */}
       <Toaster position="top-right" />
       
-      {/* Modals */}
       <CommentBox 
         isOpen={isCommentBoxOpen} 
         onClose={() => setIsCommentBoxOpen(false)} 
@@ -685,21 +623,15 @@ const Suggestion = () => {
         isOpen={isNewSuggestionOpen} 
         onClose={() => setIsNewSuggestionOpen(false)} 
         onSubmit={handleSubmitSuggestion} 
-        setSuggestions
       />
 
-      {/* Sidebar */}
       <Sidebar className="w-64 flex-shrink-0" />
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <Hearder/>
+        <Header />
 
-        {/* Content area with scrolling */}
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-3xl mx-auto">
-            {/* Page header with title and actions */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-bold mb-1">Suggestions</h1>
@@ -714,7 +646,6 @@ const Suggestion = () => {
               </button>
             </div>
             
-            {/* Filter controls */}
             <div className="mb-6 flex justify-between items-center">
               <div className="text-sm text-gray-600">
                 {filteredSuggestions.length} suggestion{filteredSuggestions.length !== 1 ? 's' : ''}
@@ -733,7 +664,6 @@ const Suggestion = () => {
               </div>
             </div>
             
-            {/* Suggestions list */}
             <div className="space-y-4">
               {loading ? (
                 <div className="text-center py-12">
@@ -750,7 +680,7 @@ const Suggestion = () => {
                     Try Again
                   </button>
                 </div>
-              ): (
+              ) : (
                 filteredSuggestions.map(suggestion => (
                   <SuggestionCard 
                     key={suggestion.id} 

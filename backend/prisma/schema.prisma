@@ -21,7 +21,7 @@ model users {
 
   // Profile images
   profilePicture   String?   @db.VarChar(255)
-  citizenshipPhoto String?   @db.VarChar(255)
+  citizenshipPhoto Json?
 
   // Verification fields
   otp              String?
