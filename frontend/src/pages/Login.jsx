@@ -9,11 +9,17 @@ const LoginPage = () => {
     user_email: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [errorType, setErrorType] = useState(''); // Can be 'auth', 'network', or 'server'
 
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Reset error states
+    setError('');
+    setErrorType('');
     
     try {
       const response = await axios.post('http://localhost:5555/api/auth/login', formData);
@@ -25,22 +31,58 @@ const LoginPage = () => {
       console.log('Login successful:', response.data.user.role);
   
       if(response.data.user.role === "USER"){
-
         navigate('/home'); 
-      }else if(response.data.user.role === "MUNICIPALITY"){
+      } else if(response.data.user.role === "MUNICIPALITY"){
         navigate('/municipality'); 
-
-      }else if(response.data.user.role === "ADMIN"){
+      } else if(response.data.user.role === "ADMIN"){
         navigate('/admin'); 
-
       }
-      // Redirect to dashboard or home page
-  
+      
     } catch (error) {
-      console.error('Login failed:', error.response?.data?.message || error.message);
-      alert(error.response?.data?.message || 'Login failed. Please try again.');
+      console.error('Login failed:', error);
+      
+      // Handle different types of errors
+      if (error.response) {
+        // The server responded with a status code outside the 2xx range
+        if (error.response.status === 401) {
+          setErrorType('auth');
+          setError('Invalid email or password. Please try again.');
+        } else if (error.response.status === 404) {
+          setErrorType('auth');
+          setError('User not found. Please check your email.');
+        } else if (error.response.status >= 500) {
+          setErrorType('server');
+          setError('Server error. Please try again later.');
+        } else {
+          setErrorType('auth');
+          setError(error.response.data?.message || 'Login failed. Please try again.');
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        setErrorType('network');
+        setError('Network error. Please check your internet connection.');
+      } else {
+        // Something happened in setting up the request
+        setErrorType('general');
+        setError('An unexpected error occurred. Please try again.');
+      }
     }
   };
+
+  // Helper function to get error background color based on error type
+  const getErrorBgColor = () => {
+    switch (errorType) {
+      case 'auth':
+        return 'bg-red-100';
+      case 'network':
+        return 'bg-yellow-100';
+      case 'server':
+        return 'bg-orange-100';
+      default:
+        return 'bg-red-100';
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Section - Illustration */}
@@ -61,8 +103,6 @@ const LoginPage = () => {
               className="w-full h-108 md:h-124 object-contain relative z-10"
             />
           </div>
-
-       
         </div>
       </div>
 
@@ -79,6 +119,13 @@ const LoginPage = () => {
             </div>
           </div>
 
+          {/* Display error message if there's an error */}
+          {error && (
+            <div className={`${getErrorBgColor()} border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded`}>
+              <p>{error}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label 
@@ -92,7 +139,7 @@ const LoginPage = () => {
                 id="user_email"
                 value={formData.user_email}
                 onChange={(e) => setFormData({...formData, user_email: e.target.value})}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className={`mt-1 block w-full px-3 py-2 border ${errorType === 'auth' ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                 required
               />
             </div>
@@ -109,7 +156,7 @@ const LoginPage = () => {
                 id="password"
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className={`mt-1 block w-full px-3 py-2 border ${errorType === 'auth' ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                 required
               />
             </div>

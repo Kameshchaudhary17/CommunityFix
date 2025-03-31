@@ -21,6 +21,7 @@ const UserManagement = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
+
   // Fetch users from API
   const fetchUsers = async () => {
     try {
@@ -78,46 +79,65 @@ const UserManagement = () => {
 
   // Update user status functions
   const updateUserStatus = async (userId, status) => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(`http://localhost:5555/api/auth/verify-status`, 
-        { userId, status },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+        setIsLoading(true); // Show loading state
+        const token = localStorage.getItem("token");
+
+        const response = await axios.post(
+            `http://localhost:5555/api/auth/${userId}/verify`,
+            { userId, status },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        console.log("User verification status updated:", response.data);
+        
+        // Update the users state with the new status
+        setUsers(prevUsers => 
+            prevUsers.map(user => 
+                user.user_id === userId 
+                    ? { ...user, isVerified: status } 
+                    : user
+            )
+        );
+        
+        // If there's a selected user and it's the one being updated, update it too
+        if (selectedUser && selectedUser.user_id === userId) {
+            setSelectedUser(prev => ({ ...prev, isVerified: status }));
         }
-      );
-      
-      // Refresh the user list after updating status
-      await fetchUsers();
-      
-      setIsLoading(false);
-      toast.success(`User ${status.toLowerCase()}ed successfully`);
-      return response.data;
-    } catch (err) {
-      setError(err.response?.data?.message || `Failed to ${status.toLowerCase()} user`);
-      setIsLoading(false);
-      toast.error(`Failed to ${status.toLowerCase()} user`);
-      throw err;
+        
+        toast.success(`User status updated to ${getStatusText(status)}`);
+        setIsLoading(false);
+        return true;
+    } catch (error) {
+        console.error("Axios Error:", error.response?.data || error.message);
+        toast.error("Failed to update user status");
+        setIsLoading(false);
+        return false;
     }
-  };
+};
+
+
 
   // Handler functions for the status update operations
   const handleApproveUser = async (userId) => {
-    return updateUserStatus(userId, "ACCEPT");
-  };
+    const success = await updateUserStatus(userId, "ACCEPT");
+    return success;
+};
 
-  const handleRejectUser = async (userId) => {
-    return updateUserStatus(userId, "REJECT");
-  };
+const handleRejectUser = async (userId) => {
+    const success = await updateUserStatus(userId, "REJECT");
+    return success;
+};
 
-  const handleResetStatus = async (userId) => {
-    return updateUserStatus(userId, "PENDING");
-  };
+const handleResetStatus = async (userId) => {
+    const success = await updateUserStatus(userId, "PENDING");
+    return success;
+};
 
   // Delete user
   const openDeleteConfirm = (user) => {

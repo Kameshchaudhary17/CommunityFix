@@ -289,10 +289,7 @@ const getSingleUserReport = async (req, res) => {
       }
     });
     
-    // Check if report exists
-    if (!report) {
-      return res.status(404).json({ error: "Report not found or you don't have permission to access it" });
-    }
+
     
     return res.status(200).json({ report });
   } catch (error) {
@@ -303,47 +300,69 @@ const getSingleUserReport = async (req, res) => {
 
 const updateReportStatus = async (req, res) => {
   try {
-    const { reportId, status } = req.body;
-    const requestingUser = req.user;
+    // Get reportId from params or body
+    const reportId = req.params.reportId || req.body.report_id;
     
-    // Check if requesting user is a municipality
-    if (requestingUser.role !== 'MUNICIPALITY' && requestingUser.role !== 'ADMIN') {
-      return res.status(403).json({ message: 'Unauthorized. Only municipality or admin can change report status.' });
+    if (!reportId) {
+      return res.status(400).json({ message: 'Report ID is required' });
     }
     
-    // Get report to check municipality and ward
-    const report = await prisma.reports.findUnique({
-      where: { report_id: parseInt(reportId) }
-    });
+    // Get status from request body
+    const { status } = req.body;
     
-    if (!report) {
-      return res.status(404).json({ message: 'Report not found' });
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
     }
     
-    // Municipality can only update reports in their municipality and ward
-    if (requestingUser.role === 'MUNICIPALITY' && 
-        (report.municipality !== requestingUser.municipality || 
-         report.wardNumber !== requestingUser.wardNumber)) {
-      return res.status(403).json({ 
-        message: 'You can only update reports in your municipality and ward' 
+    // Validate status value
+    const validStatuses = ['PENDING', 'IN_PROGRESS', 'COMPLETED'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        message: 'Invalid status. Status must be PENDING, IN_PROGRESS, or COMPLETED' 
       });
     }
     
-    // Update report status
+    // Convert reportId to integer (important for Prisma)
+    const reportIdInt = parseInt(reportId, 10);
+    
+    if (isNaN(reportIdInt)) {
+      return res.status(400).json({ message: 'Report ID must be a valid number' });
+    }
+    
+    // First check if the report exists - using the actual model name from your schema
+    // Your schema definition shows "model reports" not "model report"
+    const existingReport = await prisma.reports.findUnique({
+      where: { report_id: reportIdInt }
+    });
+    
+    if (!existingReport) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+    
+    // Update the report status - using the actual model name
     const updatedReport = await prisma.reports.update({
-      where: { report_id: parseInt(reportId) },
+      where: { report_id: reportIdInt },
       data: { status }
     });
     
-    res.status(200).json({ 
-      message: `Report status updated to ${status}`,
-      report: updatedReport
+    // Return success response
+    return res.status(200).json({
+      message: 'Report status updated successfully',
+      data: updatedReport
     });
+    
   } catch (error) {
-    console.error('Update report status error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error updating report status:', error);
+    
+    // Provide more detailed error information
+    return res.status(500).json({ 
+      message: 'An error occurred while updating the report status',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
+
 
 
 module.exports = {

@@ -520,74 +520,75 @@ const getMunicipalityUsers = async (req, res) => {
     }
 };
 
-const updateUserVerificationStatus = async (req, res) => {
-  try {
-    const { userId, status } = req.body;
-    const requestingUserId = req.user.userId;
-
-    // Validate required fields
-    if (!userId || !status) {
-      return res.status(400).json({ message: "User ID and status are required" });
-    }
-
-    // Ensure status is a valid ENUM value
-    const validStatuses = ["PENDING", "ACCEPT", "REJECT"];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: "Invalid status value" });
-    }
-
-    // Fetch the requesting user
-    const requestingUser = await prisma.users.findUnique({
-      where: { user_id: requestingUserId },
-    });
-
-    if (!requestingUser) {
-      return res.status(403).json({ message: "Unauthorized: User not found" });
-    }
-
-    if (requestingUser.role !== "MUNICIPALITY" && requestingUser.role !== "ADMIN") {
-      return res.status(403).json({
-        message: "Unauthorized: Only municipality or admin can change user status",
+const updateVerificationStatus = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { status } = req.body;
+      
+      // Validate user ID
+      if (!userId) {
+        return res.status(400).json({ message: 'User ID is required' });
+      }
+      
+      // Convert userId to integer
+      const userIdInt = parseInt(userId, 10);
+      
+      if (isNaN(userIdInt)) {
+        return res.status(400).json({ message: 'User ID must be a valid number' });
+      }
+      
+      // Validate status
+      const validStatuses = ['PENDING', 'ACCEPT', 'REJECT'];
+      if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: 'Invalid status. Status must be PENDING, ACCEPT, or REJECT'
+        });
+      }
+      
+      // Check if user exists
+      const existingUser = await prisma.users.findUnique({
+        where: { user_id: userIdInt }
+      });
+      
+      if (!existingUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Update user verification status
+      const updatedUser = await prisma.users.update({
+        where: { user_id: userIdInt },
+        data: { isVerified: status },
+        select: {
+          user_id: true,
+          user_name: true,
+          user_email: true,
+          municipality: true,
+          wardNumber: true,
+          isVerified: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          // Exclude sensitive information like password, OTP, etc.
+        }
+      });
+      
+      // Send notification based on status change (example implementation)
+      await sendVerificationNotification(existingUser.user_email, status);
+      
+      return res.status(200).json({
+        message: `User verification status updated to ${status}`,
+        data: updatedUser
+      });
+      
+    } catch (error) {
+      console.error('Error updating user verification status:', error);
+      return res.status(500).json({ 
+        message: 'An error occurred while updating user verification status',
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
-
-    // Fetch the user to be updated
-    const userToUpdate = await prisma.users.findUnique({
-      where: { user_id: userId },
-    });
-
-    if (!userToUpdate) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Municipality users can only update users within their own area
-    if (
-      requestingUser.role === "MUNICIPALITY" &&
-      (userToUpdate.municipality !== requestingUser.municipality ||
-        userToUpdate.wardNumber !== requestingUser.wardNumber)
-    ) {
-      return res.status(403).json({
-        message: "You can only update users in your municipality and ward",
-      });
-    }
-
-    // Update user verification status
-    await prisma.users.update({
-      where: { user_id: userId },
-      data: { isVerified: status },
-    });
-
-    return res.status(200).json({
-      message: `User verification status updated to ${status}`,
-    });
-  } catch (error) {
-  console.error("Update user status error:", error);
-  res.status(500).json({ 
-    message: "Internal server error",
-    error: error.message,  // Send error details to frontend for debugging
-  });
-}
-};
+  };
 
 
 const getMunicipality = async (req, res) => {
@@ -634,6 +635,41 @@ const getMunicipality = async (req, res) => {
       res.status(500).json({ error: "Internal server error." });
     }
   };
+
+  const sendVerificationNotification = async (email, status) => {
+    try {
+      // This is a placeholder for actual email sending logic
+      // You would integrate with your email service provider here
+      console.log(`Sending verification ${status} notification to ${email}`);
+      
+      // Example email content based on status
+      let subject, message;
+      
+      switch(status) {
+        case 'ACCEPT':
+          subject = 'Your Account Has Been Verified';
+          message = 'Congratulations! Your account has been verified successfully.';
+          break;
+        case 'REJECT':
+          subject = 'Account Verification Update';
+          message = 'Your account verification has been declined. Please contact support for more information.';
+          break;
+        case 'PENDING':
+          subject = 'Account Verification Status Update';
+          message = 'Your account verification status has been set to pending review.';
+          break;
+      }
+      
+      // Actual email sending would happen here
+      // await emailService.send(email, subject, message);
+      
+      return true;
+    } catch (error) {
+      console.error('Error sending verification notification:', error);
+      // Don't throw the error to avoid breaking the main process
+      return false;
+    }
+  };
   
 module.exports = {
     loginUser, 
@@ -646,5 +682,5 @@ module.exports = {
     getUsers,
     getMunicipalityUsers,
     getMunicipality,
-    updateUserVerificationStatus
+    updateVerificationStatus
 };

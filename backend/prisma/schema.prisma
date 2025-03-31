@@ -99,6 +99,12 @@ model Suggestion {
   updatedAt        DateTime  @updatedAt
   comments         Comment[]
 }
+enum Status {
+  Pending
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+}
 
 model Comment {
   id               Int       @id @default(autoincrement())
@@ -132,11 +138,6 @@ model Upvote {
 }
 
 
-enum Status {
-  Pending
-  IN_PROGRESS
-  APPROVED
-  REJECTED
-}
+
 
 

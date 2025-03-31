@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, ThumbsUp, Calendar, Eye, SortDesc } from 'lucide-react';
-import axios from 'axios'; // Add this import
+import axios from 'axios';
 import Sidebar from '../components/Sidebar';
 import Hearder from '../components/Header';
 import { useNavigate } from 'react-router-dom';
@@ -163,7 +163,8 @@ const MyReport = () => {
     );
   }
 
-  const filteredSuggestions = Array.isArray(reports) 
+  // Ensure reports is an array before filtering
+  const filteredSuggestions = reports && Array.isArray(reports) 
     ? reports.filter(report => {
         const matchesStatus = statusFilter === 'all' || 
                             (report.status?.toLowerCase() === statusFilter.toLowerCase());
@@ -219,13 +220,14 @@ const MyReport = () => {
               <div className="grid grid-cols-1 gap-6">
                 {filteredSuggestions.map((report) => (
                   <div 
-                    key={report.user.report_id} 
+                    // Fixed key issue - using report_id directly instead of report.user.report_id
+                    key={report.report_id} 
                     className="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
                   >
                     <div className="p-5">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
-                          {report.user.profilePicture ? (
+                          {report.user?.profilePicture ? (
                             <img
                               src={`http://localhost:5555/${report.user.profilePicture}`}
                               alt={report.title}

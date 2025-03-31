@@ -15,7 +15,7 @@ router.get('/getsuggestionbyid/:id', authMiddleware.authenticateUser, suggestion
 // POST routes
 router.post('/createSuggestion', authMiddleware.authenticateUser, suggestionController.createSuggestion);
 router.post('/:id/upvote', authMiddleware.authenticateUser, suggestionController.upvoteSuggestion);
-router.post('/status', suggestionController.updateSuggestionStatus);
+router.put('/:id/status',authMiddleware.authenticateUser, suggestionController.updateSuggestionStatus);
 
 // PUT routes
 router.put('/:id', authMiddleware.authenticateUser, suggestionController.updateSuggestion);

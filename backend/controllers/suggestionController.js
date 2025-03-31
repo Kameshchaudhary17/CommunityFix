@@ -481,47 +481,40 @@ exports.upvoteSuggestion = async (req, res) => {
 
 exports.updateSuggestionStatus = async (req, res) => {
   try {
-    const { suggestionId, status } = req.body;
-    const requestingUser = req.user;
-    
-    // Check if requesting user is a municipality
-    if (requestingUser.role !== 'MUNICIPALITY' && requestingUser.role !== 'ADMIN') {
-      return res.status(403).json({ 
-        message: 'Unauthorized. Only municipality or admin can change suggestion status.' 
+      const { id } = req.params;
+      const { status } = req.body;
+
+      console.log('Update request received:', { id, status, body: req.body });
+
+      // Get valid status values from your enum
+      const validStatuses = ['Pending', 'IN_PROGRESS', 'APPROVED', 'REJECTED'];
+
+      // Validate status value
+      if (!validStatuses.includes(status)) {
+          console.log('Invalid status value:', status);
+          return res.status(400).json({ 
+              error: 'Invalid status value', 
+              message: `Status must be one of: ${validStatuses.join(', ')}`,
+              receivedStatus: status
+          });
+      }
+
+      // Update suggestion status
+      const updatedSuggestion = await prisma.suggestion.update({
+          where: { id: parseInt(id) },
+          data: { status },
       });
-    }
-    
-    // Get suggestion to check municipality and ward
-    const suggestion = await prisma.suggestion.findUnique({
-      where: { id: parseInt(suggestionId) }
-    });
-    
-    if (!suggestion) {
-      return res.status(404).json({ message: 'Suggestion not found' });
-    }
-    
-    // Municipality can only update suggestions in their municipality and ward
-    if (requestingUser.role === 'MUNICIPALITY' && 
-        (suggestion.municipality !== requestingUser.municipality || 
-         suggestion.wardNumber !== requestingUser.wardNumber)) {
-      return res.status(403).json({ 
-        message: 'You can only update suggestions in your municipality and ward' 
+
+      return res.status(200).json({ 
+          success: true, 
+          suggestion: updatedSuggestion 
       });
-    }
-    
-    // Update suggestion status
-    const updatedSuggestion = await prisma.suggestion.update({
-      where: { id: parseInt(suggestionId) },
-      data: { status }
-    });
-    
-    res.status(200).json({ 
-      message: `Suggestion status updated to ${status}`,
-      suggestion: updatedSuggestion
-    });
   } catch (error) {
-    console.error('Update suggestion status error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+      console.error('Error updating suggestion status:', error);
+      return res.status(500).json({ 
+          error: 'Failed to update suggestion status',
+          message: error.message 
+      });
   }
 };
 

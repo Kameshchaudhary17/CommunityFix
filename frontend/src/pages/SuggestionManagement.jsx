@@ -80,10 +80,23 @@ const SuggestionManagement = () => {
   const handleStatusChange = async (id, newStatus) => {
     setIsLoading(true);
     
+    // Map the status values to match what the backend expects
+    const statusMapping = {
+      'Pending': 'Pending',
+      'In_Progress': 'IN_PROGRESS', // Fix the capitalization
+      'Approved': 'APPROVED',
+      'Rejected': 'REJECTED'
+    };
+    
+    // Use the mapped status or the original if not found in the mapping
+    const backendStatus = statusMapping[newStatus] || newStatus;
+    
     try {
+      console.log('Sending status update:', { id, newStatus, backendStatus });
+      
       const response = await axios.put(
-        `http://localhost:5555/api/suggestion/status`, 
-        { status: newStatus },
+        `http://localhost:5555/api/suggestion/${id}/status`,
+        { status: backendStatus }, // Send the correctly formatted status
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -92,32 +105,36 @@ const SuggestionManagement = () => {
         }
       );
       
-      if (response.data && response.data.success) {
-        // Update local state with new status
-        setSuggestions(suggestions.map(suggestion => 
-          suggestion.id === id ? { 
-            ...suggestion, 
-            status: newStatus,
-            lastUpdate: new Date().toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit'
-            }).replace(/\//g, '/')
-          } : suggestion
-        ));
-        
-        toast.success(`Suggestion status updated to ${newStatus.replace('_', ' ')}`);
-      } else {
-        throw new Error('Failed to update status');
-      }
+      console.log('Status update response:', response.data);
+      
+      // Update local state with new status (using the original newStatus for display)
+      setSuggestions(suggestions.map(suggestion =>
+        suggestion.id === id ? {
+          ...suggestion,
+          status: newStatus, // Keep using the frontend status format
+          lastUpdate: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          }).replace(/\//g, '/')
+        } : suggestion
+      ));
+      
+      toast.success(`Suggestion status updated to ${newStatus.replace('_', ' ')}`);
     } catch (error) {
       console.error('Error updating suggestion status:', error);
-      toast.error('Failed to update suggestion status');
+      if (error.response) {
+        console.log('Error response:', error.response.data);
+        toast.error(`Error: ${error.response.data.message || 'Failed to update status'}`);
+      } else {
+        toast.error('Failed to update suggestion status');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  
   // Filter suggestions based on status
   const filteredSuggestions = activeFilter === 'all' 
     ? suggestions 
