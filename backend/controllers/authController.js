@@ -1,7 +1,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+require('dotenv').config();
 const { multer, storage } = require('../middleware/fileMiddleware');
 const fs = require('fs');
 
@@ -520,76 +522,141 @@ const getMunicipalityUsers = async (req, res) => {
     }
 };
 
+const sendVerificationNotification = async (userEmail, status) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+
+    let subject, htmlContent, textContent;
+    switch(status) {
+      case 'ACCEPT':
+        subject = 'Your Account Has Been Approved';
+        textContent = "Your account has been successfully verified and approved. You now have full access.";
+        htmlContent = `
+          <h1>Account Approved</h1>
+          <p>Your account has been successfully verified and approved.</p>
+          <p>Thank you for your patience.</p>
+        `;
+        break;
+      case 'REJECT':
+        subject = 'Your Account Verification Was Unsuccessful';
+        textContent = "Your account verification was not approved. Please contact support for details.";
+        htmlContent = `
+          <h1>Verification Unsuccessful</h1>
+          <p>Your account verification was not approved.</p>
+          <p>Please contact our support team for guidance.</p>
+        `;
+        break;
+      case 'PENDING':
+        subject = 'Your Account Verification is Pending';
+        textContent = "Your verification status is pending. Our team will review your application soon.";
+        htmlContent = `
+          <h1>Verification Pending</h1>
+          <p>Your account verification status has been updated to pending.</p>
+        `;
+        break;
+      default:
+        subject = 'Important: Account Status Update';
+        textContent = "There has been an update to your account status. Please check your account for details.";
+        htmlContent = `
+          <h1>Account Update</h1>
+          <p>Please log in to your account for more details.</p>
+        `;
+    }
+
+    console.log(`Sending email to ${userEmail} using ${process.env.EMAIL_USER}`);
+
+    const info = await transporter.sendMail({
+      from: `"Municipality Verification Team" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: subject,
+      text: textContent, // Plain text version
+      html: htmlContent  // HTML version
+    });
+
+    console.log(`Email sent to ${userEmail}. Status: ${status}`);
+    return info;
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    return null;
+  }
+};
+
+// Your existing controller
 const updateVerificationStatus = async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { status } = req.body;
-      
-      // Validate user ID
-      if (!userId) {
-        return res.status(400).json({ message: 'User ID is required' });
-      }
-      
-      // Convert userId to integer
-      const userIdInt = parseInt(userId, 10);
-      
-      if (isNaN(userIdInt)) {
-        return res.status(400).json({ message: 'User ID must be a valid number' });
-      }
-      
-      // Validate status
-      const validStatuses = ['PENDING', 'ACCEPT', 'REJECT'];
-      if (!status || !validStatuses.includes(status)) {
-        return res.status(400).json({ 
-          message: 'Invalid status. Status must be PENDING, ACCEPT, or REJECT'
-        });
-      }
-      
-      // Check if user exists
-      const existingUser = await prisma.users.findUnique({
-        where: { user_id: userIdInt }
-      });
-      
-      if (!existingUser) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      
-      // Update user verification status
-      const updatedUser = await prisma.users.update({
-        where: { user_id: userIdInt },
-        data: { isVerified: status },
-        select: {
-          user_id: true,
-          user_name: true,
-          user_email: true,
-          municipality: true,
-          wardNumber: true,
-          isVerified: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-          // Exclude sensitive information like password, OTP, etc.
-        }
-      });
-      
-      // Send notification based on status change (example implementation)
-      await sendVerificationNotification(existingUser.user_email, status);
-      
-      return res.status(200).json({
-        message: `User verification status updated to ${status}`,
-        data: updatedUser
-      });
-      
-    } catch (error) {
-      console.error('Error updating user verification status:', error);
-      return res.status(500).json({ 
-        message: 'An error occurred while updating user verification status',
-        error: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  try {
+    const { userId } = req.params;
+    const { status } = req.body;
+    
+    // Validate user ID
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+    
+    // Convert userId to integer
+    const userIdInt = parseInt(userId, 10);
+    
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({ message: 'User ID must be a valid number' });
+    }
+    
+    // Validate status
+    const validStatuses = ['PENDING', 'ACCEPT', 'REJECT'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: 'Invalid status. Status must be PENDING, ACCEPT, or REJECT'
       });
     }
-  };
-
+    
+    // Check if user exists
+    const existingUser = await prisma.users.findUnique({
+      where: { user_id: userIdInt }
+    });
+    
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update user verification status
+    const updatedUser = await prisma.users.update({
+      where: { user_id: userIdInt },
+      data: { isVerified: status },
+      select: {
+        user_id: true,
+        user_name: true,
+        user_email: true,
+        municipality: true,
+        wardNumber: true,
+        isVerified: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        // Exclude sensitive information like password, OTP, etc.
+      }
+    });
+    
+    // Send notification based on status change
+    await sendVerificationNotification(existingUser.user_email, status);
+    
+    return res.status(200).json({
+      message: `User verification status updated to ${status}`,
+      data: updatedUser
+    });
+    
+  } catch (error) {
+    console.error('Error updating user verification status:', error);
+    return res.status(500).json({
+      message: 'An error occurred while updating user verification status',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
 
 const getMunicipality = async (req, res) => {
     try {
@@ -636,40 +703,6 @@ const getMunicipality = async (req, res) => {
     }
   };
 
-  const sendVerificationNotification = async (email, status) => {
-    try {
-      // This is a placeholder for actual email sending logic
-      // You would integrate with your email service provider here
-      console.log(`Sending verification ${status} notification to ${email}`);
-      
-      // Example email content based on status
-      let subject, message;
-      
-      switch(status) {
-        case 'ACCEPT':
-          subject = 'Your Account Has Been Verified';
-          message = 'Congratulations! Your account has been verified successfully.';
-          break;
-        case 'REJECT':
-          subject = 'Account Verification Update';
-          message = 'Your account verification has been declined. Please contact support for more information.';
-          break;
-        case 'PENDING':
-          subject = 'Account Verification Status Update';
-          message = 'Your account verification status has been set to pending review.';
-          break;
-      }
-      
-      // Actual email sending would happen here
-      // await emailService.send(email, subject, message);
-      
-      return true;
-    } catch (error) {
-      console.error('Error sending verification notification:', error);
-      // Don't throw the error to avoid breaking the main process
-      return false;
-    }
-  };
   
 module.exports = {
     loginUser, 

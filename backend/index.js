@@ -2,10 +2,18 @@ const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
-// rest of your server code
+
 const routes = require('./routes/routes')
 // Initialize the Express app
 const app = express();
+
+require('dotenv').config();
+
+// Log to verify environment variables are loaded
+console.log("Email credentials loaded:", {
+  user: process.env.EMAIL_USER ? "✓ Found" : "✗ Missing",
+  password: process.env.EMAIL_PASSWORD ? "✓ Found" : "✗ Missing"
+});
 
 // Middleware to parse JSON body
 app.use(express.json());
