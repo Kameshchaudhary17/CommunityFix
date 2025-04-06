@@ -29,8 +29,6 @@ const MyReport = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-
-  console.log(reports);
   
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -82,7 +80,35 @@ const MyReport = () => {
 
         // Check if response.data.report exists and set it to state
         if (response.data && response.data.report) {
-          setReports(Array.isArray(response.data.report) ? response.data.report : [response.data.report]);
+          let reportsData = Array.isArray(response.data.report) ? response.data.report : [response.data.report];
+          
+          // Fetch upvote counts for each report
+          const reportsWithUpvotes = await Promise.all(reportsData.map(async (report) => {
+            try {
+              // Fetch upvote count for this report
+              const upvoteResponse = await axios.get(`http://localhost:5555/api/upvote/${report.report_id}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              // Add upvotes count to report object
+              return {
+                ...report,
+                upvotes: upvoteResponse.data.upvotes || 0
+              };
+            } catch (err) {
+              console.error(`Error fetching upvotes for report ${report.report_id}:`, err);
+              // Return report with default upvote count if fetch fails
+              return {
+                ...report,
+                upvotes: 0
+              };
+            }
+          }));
+          
+          setReports(reportsWithUpvotes);
         } else {
           // If no reports found, set empty array
           setReports([]);
@@ -99,37 +125,44 @@ const MyReport = () => {
   }, []);
 
   const handleUpvote = async (reportId) => {
-    // Check if already upvoted
-    if (upvotedReports.includes(reportId)) {
-      return; // User has already upvoted this report
-    }
+    const token = localStorage.getItem('token');
+    const isUpvoted = upvotedReports.includes(reportId);
     
     try {
-      const token = localStorage.getItem('token');
-      
-      // Call your API to record the upvote using axios
-      const response = await axios.post(`http://localhost:5555/api/report/upvote/${reportId}`, {}, {
+      // The backend uses the same endpoint for both adding and removing upvotes
+      const response = await axios.post(`http://localhost:5555/api/upvote/${reportId}`, {}, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
       
-      // Update local state for upvotes
-      const newUpvotedReports = [...upvotedReports, reportId];
-      setUpvotedReports(newUpvotedReports);
-      localStorage.setItem('upvotedReports', JSON.stringify(newUpvotedReports));
+      // Get updated upvote count from the response
+      const updatedUpvoteCount = response.data.upvotes;
       
-      // Update the reports list with the new upvote count
+      // Update local state based on the response
+      if (isUpvoted) {
+        // Remove from upvoted reports if we were upvoting before
+        const newUpvotedReports = upvotedReports.filter(id => id !== reportId);
+        setUpvotedReports(newUpvotedReports);
+        localStorage.setItem('upvotedReports', JSON.stringify(newUpvotedReports));
+      } else {
+        // Add to upvoted reports if we weren't upvoting before
+        const newUpvotedReports = [...upvotedReports, reportId];
+        setUpvotedReports(newUpvotedReports);
+        localStorage.setItem('upvotedReports', JSON.stringify(newUpvotedReports));
+      }
+      
+      // Update the reports list with the new upvote count from the server
       setReports(reports.map(report => 
         report.report_id === reportId 
-          ? { ...report, upvotes: (report.upvotes || 0) + 1 } 
+          ? { ...report, upvotes: updatedUpvoteCount } 
           : report
       ));
       
     } catch (err) {
-      console.error('Error upvoting report:', err);
-      alert('Failed to upvote. Please try again later.');
+      console.error('Error toggling upvote:', err);
+      alert('Failed to toggle upvote. Please try again later.');
     }
   };
 
@@ -220,7 +253,6 @@ const MyReport = () => {
               <div className="grid grid-cols-1 gap-6">
                 {filteredSuggestions.map((report) => (
                   <div 
-                    // Fixed key issue - using report_id directly instead of report.user.report_id
                     key={report.report_id} 
                     className="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
                   >
@@ -270,12 +302,12 @@ const MyReport = () => {
                         <div className="flex flex-col items-end space-y-3">
                           <button 
                             onClick={() => handleUpvote(report.report_id)}
-                            disabled={upvotedReports.includes(report.report_id)}
                             className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-sm transition ${
                               upvotedReports.includes(report.report_id)
                                 ? 'bg-blue-50 text-blue-500'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
+                            aria-label={upvotedReports.includes(report.report_id) ? "Remove upvote" : "Upvote"}
                           >
                             <ThumbsUp size={16} className={upvotedReports.includes(report.report_id) ? 'fill-blue-500' : ''} />
                             <span>{report.upvotes || 0}</span>

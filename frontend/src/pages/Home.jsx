@@ -4,7 +4,7 @@ import Sidebar from '../components/Sidebar';
 import Hearder from '../components/Header';
 import { useNavigate } from 'react-router-dom';
 
-// Missing StatusFilter component
+// Status Filter component
 const StatusFilter = ({ value, onChange }) => {
   return (
     <select 
@@ -25,8 +25,8 @@ const Home = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [upvotedReports, setUpvotedReports] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('all'); // Added missing state
-  const [searchQuery, setSearchQuery] = useState(''); // Added missing state
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   const getStatusColor = (status) => {
@@ -55,51 +55,75 @@ const Home = () => {
     }
   };
 
+  // Fetch reports from the server
+  const fetchReports = async () => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:5555/api/report/getReport', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch reports');
+      }
+
+      const data = await response.json();
+      
+      // Store the reports
+      let fetchedReports = data.reports || [];
+      
+      // Now fetch upvote counts for each report
+      await Promise.all(fetchedReports.map(async (report) => {
+        try {
+          const upvoteRes = await fetch(`http://localhost:5555/api/upvote/${report.report_id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (upvoteRes.ok) {
+            const upvoteData = await upvoteRes.json();
+            report.upvotes = upvoteData.upvotes;
+          }
+        } catch (err) {
+          console.error(`Error fetching upvotes for report ${report.report_id}:`, err);
+          // Don't fail the entire process for one upvote fetch failure
+          report.upvotes = report.upvotes || 0;
+        }
+      }));
+      
+      setReports(fetchedReports);
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      setError(err.message);
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Load upvoted reports from localStorage
     const savedUpvotes = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
     setUpvotedReports(savedUpvotes);
     
-    const fetchReports = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        
-        const response = await fetch('http://localhost:5555/api/report/getReport', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch reports');
-        }
-
-        const data = await response.json();
-        setReports(data.reports || []);
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error fetching reports:', err);
-        setError(err.message);
-        setIsLoading(false);
-      }
-    };
-
+    // Fetch reports with upvote counts
     fetchReports();
   }, []);
 
   const handleUpvote = async (reportId) => {
-    // Check if already upvoted
-    if (upvotedReports.includes(reportId)) {
-      return; // User has already upvoted this report
-    }
-    
     try {
       const token = localStorage.getItem('token');
       
-      // Call your API to record the upvote
-      const response = await fetch(`http://localhost:5555/api/upvote/${reportId.id}/upvote`, {
+      // Call your API to toggle the upvote (add or remove)
+      const response = await fetch(`http://localhost:5555/api/upvote/${reportId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -108,29 +132,40 @@ const Home = () => {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to upvote');
+        throw new Error('Failed to toggle upvote');
       }
       
-      // Update local state for upvotes
-      const newUpvotedReports = [...upvotedReports, reportId];
+      const data = await response.json();
+      
+      // Check if the user has upvoted or removed the upvote
+      const isUpvoted = upvotedReports.includes(reportId);
+      let newUpvotedReports;
+      
+      if (isUpvoted) {
+        // If the report was already upvoted, remove it from upvotedReports
+        newUpvotedReports = upvotedReports.filter(id => id !== reportId);
+      } else {
+        // If the report was not upvoted, add it to upvotedReports
+        newUpvotedReports = [...upvotedReports, reportId];
+      }
+      
+      // Update localStorage and state with the new upvoted reports
       setUpvotedReports(newUpvotedReports);
       localStorage.setItem('upvotedReports', JSON.stringify(newUpvotedReports));
       
-      // Update the reports list with the new upvote count
+      // Update the reports list with the new upvote count from the server response
       setReports(reports.map(report => 
         report.report_id === reportId 
-          ? { ...report, upvotes: (report.upvotes || 0) + 1 } 
+          ? { ...report, upvotes: data.upvotes } 
           : report
       ));
       
     } catch (err) {
-      console.error('Error upvoting report:', err);
-      alert('Failed to upvote. Please try again later.');
+      console.error('Error toggling upvote:', err);
+      alert('Failed to process upvote. Please try again later.');
     }
   };
 
-
-  console.log(reports)
   const viewReportDetail = (reportId) => {
     navigate(`/reportdetail/${reportId}`);
   };
@@ -151,7 +186,7 @@ const Home = () => {
           <h2 className="text-xl font-semibold mb-2">Error Loading Reports</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={fetchReports}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
           >
             Try Again
@@ -161,7 +196,7 @@ const Home = () => {
     );
   }
 
-  // Fixed: reports instead of report
+  // Filter reports based on status and search query
   const filteredSuggestions = reports.filter(report => {
     const matchesStatus = statusFilter === 'all' || 
                           (report.status?.toLowerCase() === statusFilter.toLowerCase());
@@ -178,8 +213,8 @@ const Home = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Hearder */}
-        <Hearder/>
+        {/* Header */}
+        <Hearder />
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6">
@@ -222,7 +257,7 @@ const Home = () => {
                     <div className="p-5">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
-                          {report.user.profilePicture ? (
+                          {report.user?.profilePicture ? (
                             <img
                               src={`http://localhost:5555/${report.user.profilePicture}`}
                               alt={report.title}
@@ -265,14 +300,16 @@ const Home = () => {
                         <div className="flex flex-col items-end space-y-3">
                           <button 
                             onClick={() => handleUpvote(report.report_id)}
-                            disabled={upvotedReports.includes(report.report_id)}
                             className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-sm transition ${
                               upvotedReports.includes(report.report_id)
                                 ? 'bg-blue-50 text-blue-500'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                           >
-                            <ThumbsUp size={16} className={upvotedReports.includes(report.report_id) ? 'fill-blue-500' : ''} />
+                            <ThumbsUp 
+                              size={16} 
+                              className={upvotedReports.includes(report.report_id) ? 'fill-blue-500' : ''} 
+                            />
                             <span>{report.upvotes || 0}</span>
                           </button>
                           

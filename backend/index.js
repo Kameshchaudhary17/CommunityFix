@@ -9,11 +9,6 @@ const app = express();
 
 require('dotenv').config();
 
-// Log to verify environment variables are loaded
-console.log("Email credentials loaded:", {
-  user: process.env.EMAIL_USER ? "✓ Found" : "✗ Missing",
-  password: process.env.EMAIL_PASSWORD ? "✓ Found" : "✗ Missing"
-});
 
 // Middleware to parse JSON body
 app.use(express.json());
