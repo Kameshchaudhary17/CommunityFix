@@ -29,6 +29,14 @@ const MyReport = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+  }, [navigate]);
   
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {

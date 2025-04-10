@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Eye, 
-  Search, 
-  Filter, 
-  ChevronDown, 
-  ChevronUp, 
-  RefreshCw, 
+import {
+  Eye,
+  Search,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
   ThumbsUp,
   MapPin,
   Clock,
@@ -14,8 +14,9 @@ import {
   X
 } from 'lucide-react';
 import MunicipalitySidebar from '../components/MunicipalitySidebar';
-import Header from '../components/Header';
+import MunicipalityHeader from '../components/MunicipalityHeader';
 import { toast, Toaster } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -43,6 +44,12 @@ const ReportManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const token = localStorage.getItem('token');
+  const navigate = useNavigate();
+  if (!token) {
+    navigate('/login');
+  }
+
   // Status mapping for consistent display
   const statusMapping = {
     'PENDING': 'Pending',
@@ -63,20 +70,20 @@ const ReportManagement = () => {
   const fetchReports = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await axios.get(`${API_BASE_URL}/report/getReport`, {
         headers: getAuthHeader()
       });
-      
+
       console.log('Report data structure:', response.data);
-      
+
       // Map backend enum statuses to frontend display format
       const mappedReports = response.data.reports.map(report => {
         // Check if upvotes is an array and get its length
-        const upvotesCount = Array.isArray(report.upvotes) ? report.upvotes.length : 
-                            (typeof report.upvotes === 'number' ? report.upvotes : 0);
-        
+        const upvotesCount = Array.isArray(report.upvotes) ? report.upvotes.length :
+          (typeof report.upvotes === 'number' ? report.upvotes : 0);
+
         return {
           ...report,
           status: statusMapping[report.status] || report.status,
@@ -84,7 +91,7 @@ const ReportManagement = () => {
           upvotesCount // Add upvotesCount property
         };
       });
-      
+
       setReports(mappedReports || []);
     } catch (err) {
       console.error('Error fetching reports:', err);
@@ -101,28 +108,28 @@ const ReportManagement = () => {
       // Use report_id from the model schema
       const id = reportId || selectedReport?.report_id;
       console.log(`Attempting to update report ${id} status to ${newStatus}`);
-      
+
       // Map frontend display status to backend enum values
       let backendStatus;
-      switch(newStatus) {
+      switch (newStatus) {
         case 'Pending': backendStatus = 'PENDING'; break;
         case 'In Progress': backendStatus = 'IN_PROGRESS'; break;
         case 'Completed': backendStatus = 'COMPLETED'; break;
         default: backendStatus = newStatus;
       }
-      
+
       console.log(`Converted status from "${newStatus}" to "${backendStatus}"`);
-      
+
       // Update URL to match server route structure
       const response = await axios.put(
         `${API_BASE_URL}/report/${id}/status`,
         { status: backendStatus },
         { headers: getAuthHeader() }
       );
-      
+
       if (response.status === 200) {
         console.log('Status update successful:', response.data);
-        
+
         // Update the local state with the new status
         setReports(reports.map(report => {
           if (report.report_id === id) {
@@ -130,19 +137,19 @@ const ReportManagement = () => {
           }
           return report;
         }));
-        
+
         toast.success('Status updated successfully');
         return true;
       }
       return false;
     } catch (err) {
       console.error('Detailed API error:', err);
-      
+
       // Try with an alternative endpoint format as a fallback
       try {
         const id = reportId || selectedReport?.report_id;
         console.log('Trying alternative endpoint format...');
-        
+
         const alternativeResponse = await axios.post(
           `${API_BASE_URL}/report/status`,
           {
@@ -151,7 +158,7 @@ const ReportManagement = () => {
           },
           { headers: getAuthHeader() }
         );
-        
+
         if (alternativeResponse.status === 200) {
           console.log('Status update successful with alternative endpoint');
           setReports(reports.map(report => {
@@ -160,7 +167,7 @@ const ReportManagement = () => {
             }
             return report;
           }));
-          
+
           toast.success('Status updated successfully');
           return true;
         }
@@ -174,10 +181,10 @@ const ReportManagement = () => {
             headers: err.response.headers
           });
         }
-        
+
         // Both approaches failed, handle the error
         handleApiError(err, 'Failed to update status');
-        
+
         // Log error details for debugging
         console.error('Failed with both endpoint approaches');
         return false;
@@ -189,7 +196,7 @@ const ReportManagement = () => {
   // Generic error handler for API requests
   const handleApiError = (err, defaultMessage) => {
     console.error(`API Error: ${defaultMessage}`, err);
-    
+
     if (err.response) {
       // Server responded with error status
       const errorMsg = err.response.data?.error || `${defaultMessage} (${err.response.status})`;
@@ -237,24 +244,24 @@ const ReportManagement = () => {
   const handleStatusChange = async (event, reportId) => {
     const newStatus = event.target.value;
     console.log(`Status change requested: ${reportId} to ${newStatus}`);
-    
+
     // Disable the select while updating
     event.target.disabled = true;
-    
+
     const success = await handleUpdateStatus(reportId, newStatus);
-    
+
     // Re-enable the select
     event.target.disabled = false;
-    
+
     if (!success) {
       // Revert the select element to the previous value if update failed
-      const originalStatus = reports.find(report => 
+      const originalStatus = reports.find(report =>
         report.report_id === reportId || report.id === reportId
       )?.status || '';
-      
+
       console.log(`Update failed, reverting to original status: ${originalStatus}`);
       event.target.value = originalStatus;
-      
+
       toast.error('Failed to update status. Please try again.');
     } else {
       // Update selectedReport if we're in detail view
@@ -269,11 +276,11 @@ const ReportManagement = () => {
 
   // Filter and sort reports
   const filteredReports = reports.filter(report => {
-    const matchesSearch = report.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         report.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = report.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = statusFilter === 'All' || report.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -325,20 +332,20 @@ const ReportManagement = () => {
       <MunicipalitySidebar className="w-full md:w-64 flex-shrink-0" />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        
+        <MunicipalityHeader />
+
         <main className="flex-1 overflow-y-auto py-8">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Report Management</h1>
-              
+
               {/* Error display */}
               {error && (
                 <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4 flex items-center">
                   <AlertCircle className="mr-2 h-5 w-5" />
                   <span>{error}</span>
-                  <button 
-                    onClick={() => setError(null)} 
+                  <button
+                    onClick={() => setError(null)}
                     className="ml-2 text-red-700 hover:text-red-900"
                   >
                     <X className="h-4 w-4" />
@@ -384,7 +391,7 @@ const ReportManagement = () => {
                       </div>
                     </div>
 
-                    <button 
+                    <button
                       onClick={() => {
                         setSearchTerm('');
                         setStatusFilter('All');
@@ -413,90 +420,90 @@ const ReportManagement = () => {
                     <thead className="bg-gray-50">
                       <tr>
                         {/* ID Column */}
-                        <th 
-                          scope="col" 
+                        <th
+                          scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                           onClick={() => handleSort('id')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Report ID</span>
                             {sortConfig.key === 'id' && (
-                              sortConfig.direction === 'asc' ? 
-                              <ChevronUp className="h-4 w-4" /> : 
-                              <ChevronDown className="h-4 w-4" />
+                              sortConfig.direction === 'asc' ?
+                                <ChevronUp className="h-4 w-4" /> :
+                                <ChevronDown className="h-4 w-4" />
                             )}
                           </div>
                         </th>
-                        
+
                         {/* Title Column */}
-                        <th 
-                          scope="col" 
+                        <th
+                          scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                           onClick={() => handleSort('title')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Title</span>
                             {sortConfig.key === 'title' && (
-                              sortConfig.direction === 'asc' ? 
-                              <ChevronUp className="h-4 w-4" /> : 
-                              <ChevronDown className="h-4 w-4" />
+                              sortConfig.direction === 'asc' ?
+                                <ChevronUp className="h-4 w-4" /> :
+                                <ChevronDown className="h-4 w-4" />
                             )}
                           </div>
                         </th>
-                        
+
                         {/* Description */}
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Description
                         </th>
-                        
+
                         {/* Report Date */}
-                        <th 
-                          scope="col" 
+                        <th
+                          scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                           onClick={() => handleSort('reportDate')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Report Date</span>
                             {sortConfig.key === 'reportDate' && (
-                              sortConfig.direction === 'asc' ? 
-                              <ChevronUp className="h-4 w-4" /> : 
-                              <ChevronDown className="h-4 w-4" />
+                              sortConfig.direction === 'asc' ?
+                                <ChevronUp className="h-4 w-4" /> :
+                                <ChevronDown className="h-4 w-4" />
                             )}
                           </div>
                         </th>
-                        
+
                         {/* Status */}
-                        <th 
-                          scope="col" 
+                        <th
+                          scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                           onClick={() => handleSort('status')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Status</span>
                             {sortConfig.key === 'status' && (
-                              sortConfig.direction === 'asc' ? 
-                              <ChevronUp className="h-4 w-4" /> : 
-                              <ChevronDown className="h-4 w-4" />
+                              sortConfig.direction === 'asc' ?
+                                <ChevronUp className="h-4 w-4" /> :
+                                <ChevronDown className="h-4 w-4" />
                             )}
                           </div>
                         </th>
-                        
+
                         {/* Upvotes */}
-                        <th 
-                          scope="col" 
+                        <th
+                          scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                           onClick={() => handleSort('upvotes')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Upvotes</span>
                             {sortConfig.key === 'upvotes' && (
-                              sortConfig.direction === 'asc' ? 
-                              <ChevronUp className="h-4 w-4" /> : 
-                              <ChevronDown className="h-4 w-4" />
+                              sortConfig.direction === 'asc' ?
+                                <ChevronUp className="h-4 w-4" /> :
+                                <ChevronDown className="h-4 w-4" />
                             )}
                           </div>
                         </th>
-                        
+
                         {/* Actions */}
                         <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
@@ -510,19 +517,19 @@ const ReportManagement = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {report.report_id}
                           </td>
-                          
+
                           {/* Title */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{report.title}</div>
                           </td>
-                          
+
                           {/* Description */}
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-500 max-w-xs">
                               {truncateText(report.description, 100)}
                             </div>
                           </td>
-                          
+
                           {/* Report Date */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {report.reportDate ? new Date(report.reportDate).toLocaleDateString('en-US', {
@@ -531,7 +538,7 @@ const ReportManagement = () => {
                               day: 'numeric'
                             }) : 'N/A'}
                           </td>
-                          
+
                           {/* Status */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full items-center ${getStatusBadge(report.status).className}`}>
@@ -539,7 +546,7 @@ const ReportManagement = () => {
                               {report.status}
                             </span>
                           </td>
-                          
+
                           {/* Upvotes */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -549,7 +556,7 @@ const ReportManagement = () => {
                               <ThumbsUp className="h-4 w-4 ml-1.5 text-blue-500" />
                             </div>
                           </td>
-                          
+
                           {/* Actions */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                             <div className="flex items-center justify-center space-x-2">
@@ -565,7 +572,7 @@ const ReportManagement = () => {
                           </td>
                         </tr>
                       ))}
-                      
+
                       {/* Empty state */}
                       {sortedReports.length === 0 && !isLoading && (
                         <tr>
@@ -578,7 +585,7 @@ const ReportManagement = () => {
                     </tbody>
                   </table>
                 </div>
-                
+
                 {/* Basic pagination */}
                 <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                   <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
@@ -721,12 +728,12 @@ const ReportManagement = () => {
                         Coordinates: {selectedReport.latitude}, {selectedReport.longitude}
                       </div>
                     </div>
-                    
+
                     {/* Leaflet Map */}
                     <div className="h-64 rounded-lg overflow-hidden border border-gray-200">
-                      <MapContainer 
-                        center={[selectedReport.latitude, selectedReport.longitude]} 
-                        zoom={14} 
+                      <MapContainer
+                        center={[selectedReport.latitude, selectedReport.longitude]}
+                        zoom={14}
                         style={{ height: '100%', width: '100%' }}
                         scrollWheelZoom={false}
                       >
@@ -757,9 +764,9 @@ const ReportManagement = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {selectedReport.photo.map((photo, index) => (
                           <div key={index} className="rounded-lg overflow-hidden border border-gray-200">
-                            <img 
-                              src={photo} 
-                              alt={`Report ${index + 1}`} 
+                            <img
+                              src={photo}
+                              alt={`Report ${index + 1}`}
                               className="w-full h-auto object-cover"
                             />
                           </div>
@@ -768,9 +775,9 @@ const ReportManagement = () => {
                     ) : (
                       typeof selectedReport.photo === 'string' ? (
                         <div className="rounded-lg overflow-hidden border border-gray-200 max-w-md">
-                          <img 
-                            src={selectedReport.photo} 
-                            alt="Report photo" 
+                          <img
+                            src={selectedReport.photo}
+                            alt="Report photo"
                             className="w-full h-auto object-cover"
                           />
                         </div>

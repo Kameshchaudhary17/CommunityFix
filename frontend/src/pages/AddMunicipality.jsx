@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Eye, EyeOff, Trash2 } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { toast, Toaster } from 'react-hot-toast';
 
 const AddMunicipality = () => {
@@ -18,6 +19,13 @@ const AddMunicipality = () => {
     password: '',
     confirmPassword: ''
   });
+
+  const navigate = useNavigate();
+  
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

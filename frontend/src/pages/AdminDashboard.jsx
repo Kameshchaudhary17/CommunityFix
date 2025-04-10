@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Menu, LayoutDashboard, Users, Settings } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { useNavigate } from "react-router-dom";
 import AdminSidebar from "../components/AdminSidebar";
 
 const data = [
@@ -12,6 +13,15 @@ const data = [
 
 const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const navigate = useNavigate();
+
+  
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+
 
   return (
     <div className="flex h-screen bg-gray-100">

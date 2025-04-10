@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc, MoreVertical } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
@@ -530,6 +531,11 @@ const Suggestion = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const token = localStorage.getItem('token');
   
+  const navigate = useNavigate();
+    if (!token) {
+      navigate('/login');
+    }
+
   useEffect(() => {
     fetchSuggestions();
   }, []);

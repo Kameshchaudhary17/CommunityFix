@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Hearder from '../components/Header';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import "leaflet/dist/leaflet.css";
 import axios from 'axios';
@@ -36,6 +37,10 @@ const ReportPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const token = localStorage.getItem('token');
+  const navigate = useNavigate();
+    if (!token) {
+      navigate('/login');
+    }
 
   const handleChange = (e) => {
     const { name, value } = e.target;

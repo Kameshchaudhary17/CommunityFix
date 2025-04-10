@@ -12,8 +12,9 @@ import {
   ThumbsUp
 } from 'lucide-react';
 import MunicipalitySidebar from '../components/MunicipalitySidebar';
-import Header from '../components/Header';
+import MunicipalityHeader from '../components/MunicipalityHeader';
 import { toast, Toaster } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const SuggestionManagement = () => {
@@ -23,6 +24,10 @@ const SuggestionManagement = () => {
   const [error, setError] = useState("")
 
   const token = localStorage.getItem('token');
+  const navigate = useNavigate();
+    if (!token) {
+      navigate('/login');
+    }
 
   const fetchSuggestions = async () => {
     setLoading(true);
@@ -194,7 +199,7 @@ const SuggestionManagement = () => {
       <MunicipalitySidebar className="w-full md:w-64 flex-shrink-0" />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+        <MunicipalityHeader />
         
         <main className="flex-1 overflow-y-auto py-8">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">

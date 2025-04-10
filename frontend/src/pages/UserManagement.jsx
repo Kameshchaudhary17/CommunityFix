@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Check, X, Eye, Search, Filter, ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
-import Header from '../components/Header';
+import MunicipalityHeader from '../components/MunicipalityHeader';
 import { toast, Toaster } from 'react-hot-toast';
 import MunicipalitySidebar from '../components/MunicipalitySidebar';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+
 
 const UserManagement = () => {
   // State for users data
@@ -21,19 +23,24 @@ const UserManagement = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
-
+  const token = localStorage.getItem('token');
+      const navigate = useNavigate();
+      if (!token) {
+        navigate('/login');
+      }
+      
   // Fetch users from API
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
+
       const response = await axios.get('http://localhost:5555/api/auth/getmunicipalityuser', {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
-      
+
       if (response.data && response.data.users) {
         setUsers(response.data.users);
       } else {
@@ -80,46 +87,46 @@ const UserManagement = () => {
   // Update user status functions
   const updateUserStatus = async (userId, status) => {
     try {
-        setIsLoading(true); // Show loading state
-        const token = localStorage.getItem("token");
+      setIsLoading(true); // Show loading state
+      const token = localStorage.getItem("token");
 
-        const response = await axios.post(
-            `http://localhost:5555/api/auth/${userId}/verify`,
-            { userId, status },
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-            }
-        );
-
-        console.log("User verification status updated:", response.data);
-        
-        // Update the users state with the new status
-        setUsers(prevUsers => 
-            prevUsers.map(user => 
-                user.user_id === userId 
-                    ? { ...user, isVerified: status } 
-                    : user
-            )
-        );
-        
-        // If there's a selected user and it's the one being updated, update it too
-        if (selectedUser && selectedUser.user_id === userId) {
-            setSelectedUser(prev => ({ ...prev, isVerified: status }));
+      const response = await axios.post(
+        `http://localhost:5555/api/auth/${userId}/verify`,
+        { userId, status },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-        
-        toast.success(`User status updated to ${getStatusText(status)}`);
-        setIsLoading(false);
-        return true;
+      );
+
+      console.log("User verification status updated:", response.data);
+
+      // Update the users state with the new status
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.user_id === userId
+            ? { ...user, isVerified: status }
+            : user
+        )
+      );
+
+      // If there's a selected user and it's the one being updated, update it too
+      if (selectedUser && selectedUser.user_id === userId) {
+        setSelectedUser(prev => ({ ...prev, isVerified: status }));
+      }
+
+      toast.success(`User status updated to ${getStatusText(status)}`);
+      setIsLoading(false);
+      return true;
     } catch (error) {
-        console.error("Axios Error:", error.response?.data || error.message);
-        toast.error("Failed to update user status");
-        setIsLoading(false);
-        return false;
+      console.error("Axios Error:", error.response?.data || error.message);
+      toast.error("Failed to update user status");
+      setIsLoading(false);
+      return false;
     }
-};
+  };
 
 
 
@@ -127,17 +134,17 @@ const UserManagement = () => {
   const handleApproveUser = async (userId) => {
     const success = await updateUserStatus(userId, "ACCEPT");
     return success;
-};
+  };
 
-const handleRejectUser = async (userId) => {
+  const handleRejectUser = async (userId) => {
     const success = await updateUserStatus(userId, "REJECT");
     return success;
-};
+  };
 
-const handleResetStatus = async (userId) => {
+  const handleResetStatus = async (userId) => {
     const success = await updateUserStatus(userId, "PENDING");
     return success;
-};
+  };
 
   // Delete user
   const openDeleteConfirm = (user) => {
@@ -147,25 +154,25 @@ const handleResetStatus = async (userId) => {
 
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
-    
+
     try {
       setIsLoading(true);
       const token = localStorage.getItem('token');
-      
+
       await axios.delete(`http://localhost:5555/api/auth/users/${userToDelete.user_id}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
-      
+
       // Refresh the user list
       await fetchUsers();
-      
+
       setIsDeleteConfirmOpen(false);
       setUserToDelete(null);
       setIsLoading(false);
       toast.success('User deleted successfully');
-      
+
       // If the deleted user is currently being viewed, close the detail modal
       if (isUserDetailOpen && selectedUser && selectedUser.user_id === userToDelete.user_id) {
         setIsUserDetailOpen(false);
@@ -179,14 +186,14 @@ const handleResetStatus = async (userId) => {
 
   // Filter users based on search term and status filter
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch =
+      user.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.citizenshipNumber?.includes(searchTerm) ||
       user.contact?.includes(searchTerm);
-    
+
     const matchesStatus = statusFilter === 'All' || getStatusText(user.isVerified) === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -194,7 +201,7 @@ const handleResetStatus = async (userId) => {
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     const aValue = a[sortConfig.key];
     const bValue = b[sortConfig.key];
-    
+
     if (aValue < bValue) {
       return sortConfig.direction === 'asc' ? -1 : 1;
     }
@@ -226,7 +233,7 @@ const handleResetStatus = async (userId) => {
       <div className="flex flex-col min-h-screen bg-gray-50 md:flex-row">
         <MunicipalitySidebar className="w-full md:w-64 flex-shrink-0" />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
+          <MunicipalityHeader />
           <main className="flex-1 overflow-y-auto py-8">
             <div className="container mx-auto px-4 flex items-center justify-center h-full">
               <div className="text-center">
@@ -246,7 +253,7 @@ const handleResetStatus = async (userId) => {
       <div className="flex flex-col min-h-screen bg-gray-50 md:flex-row">
         <MunicipalitySidebar className="w-full md:w-64 flex-shrink-0" />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
+          <MunicipalityHeader />
           <main className="flex-1 overflow-y-auto py-8">
             <div className="container mx-auto px-4 flex items-center justify-center h-full">
               <div className="text-center">
@@ -254,7 +261,7 @@ const handleResetStatus = async (userId) => {
                   <X className="h-8 w-8" />
                 </div>
                 <p className="text-lg text-gray-800 font-medium">{error}</p>
-                <button 
+                <button
                   onClick={() => window.location.reload()}
                   className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
                 >
@@ -274,8 +281,8 @@ const handleResetStatus = async (userId) => {
       <MunicipalitySidebar className="w-full md:w-64 flex-shrink-0" />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        
+        <MunicipalityHeader />
+
         <main className="flex-1 overflow-y-auto py-8">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -319,7 +326,7 @@ const handleResetStatus = async (userId) => {
                       </div>
                     </div>
 
-                    <button 
+                    <button
                       onClick={() => {
                         setSearchTerm('');
                         setStatusFilter('All');
@@ -341,90 +348,90 @@ const handleResetStatus = async (userId) => {
                   <thead className="bg-gray-50">
                     <tr>
                       {/* ID Column */}
-                      <th 
-                        scope="col" 
+                      <th
+                        scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('user_id')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>User ID</span>
                           {sortConfig.key === 'user_id' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
+                            sortConfig.direction === 'asc' ?
+                              <ChevronUp className="h-4 w-4" /> :
+                              <ChevronDown className="h-4 w-4" />
                           )}
                         </div>
                       </th>
-                      
+
                       {/* Name Column */}
-                      <th 
-                        scope="col" 
+                      <th
+                        scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('user_name')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>Name</span>
                           {sortConfig.key === 'user_name' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
+                            sortConfig.direction === 'asc' ?
+                              <ChevronUp className="h-4 w-4" /> :
+                              <ChevronDown className="h-4 w-4" />
                           )}
                         </div>
                       </th>
-                      
+
                       {/* Contact Info */}
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Contact Info
                       </th>
-                      
+
                       {/* Municipality */}
-                      <th 
-                        scope="col" 
+                      <th
+                        scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('municipality')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>Municipality</span>
                           {sortConfig.key === 'municipality' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
+                            sortConfig.direction === 'asc' ?
+                              <ChevronUp className="h-4 w-4" /> :
+                              <ChevronDown className="h-4 w-4" />
                           )}
                         </div>
                       </th>
-                      
+
                       {/* Registration Date */}
-                      <th 
-                        scope="col" 
+                      <th
+                        scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('createdAt')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>Registered</span>
                           {sortConfig.key === 'createdAt' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
+                            sortConfig.direction === 'asc' ?
+                              <ChevronUp className="h-4 w-4" /> :
+                              <ChevronDown className="h-4 w-4" />
                           )}
                         </div>
                       </th>
-                      
+
                       {/* Status */}
-                      <th 
-                        scope="col" 
+                      <th
+                        scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('isVerified')}
                       >
                         <div className="flex items-center space-x-1">
                           <span>Status</span>
                           {sortConfig.key === 'isVerified' && (
-                            sortConfig.direction === 'asc' ? 
-                            <ChevronUp className="h-4 w-4" /> : 
-                            <ChevronDown className="h-4 w-4" />
+                            sortConfig.direction === 'asc' ?
+                              <ChevronUp className="h-4 w-4" /> :
+                              <ChevronDown className="h-4 w-4" />
                           )}
                         </div>
                       </th>
-                      
+
                       {/* Actions */}
                       <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -438,15 +445,15 @@ const handleResetStatus = async (userId) => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {user.user_id}
                         </td>
-                        
+
                         {/* Name with profile picture */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
-                              <img 
-                                className="h-10 w-10 rounded-full object-cover" 
-                                src={user.profilePicture ? `http://localhost:5555/${user.profilePicture}` : "/api/placeholder/400/400"} 
-                                alt={user.user_name} 
+                              <img
+                                className="h-10 w-10 rounded-full object-cover"
+                                src={user.profilePicture ? `http://localhost:5555/${user.profilePicture}` : "/api/placeholder/400/400"}
+                                alt={user.user_name}
                               />
                             </div>
                             <div className="ml-4">
@@ -454,19 +461,19 @@ const handleResetStatus = async (userId) => {
                             </div>
                           </div>
                         </td>
-                        
+
                         {/* Contact Info */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{user.user_email || 'No Email'}</div>
                           <div className="text-sm text-gray-500">{user.contact || 'No Contact'}</div>
                         </td>
-                        
+
                         {/* Municipality */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{user.municipality || 'Not Specified'}</div>
                           <div className="text-sm text-gray-500">Ward {user.wardNumber || 'N/A'}</div>
                         </td>
-                        
+
                         {/* Registration Date */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', {
@@ -475,14 +482,14 @@ const handleResetStatus = async (userId) => {
                             day: 'numeric'
                           }) : 'Unknown'}
                         </td>
-                        
+
                         {/* Status */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(user.isVerified)}`}>
                             {getStatusText(user.isVerified)}
                           </span>
                         </td>
-                        
+
                         {/* Actions */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                           <div className="flex items-center justify-center space-x-2">
@@ -494,7 +501,7 @@ const handleResetStatus = async (userId) => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            
+
                             {/* Conditional Buttons based on Status */}
                             {user.isVerified === "PENDING" && (
                               <>
@@ -516,7 +523,7 @@ const handleResetStatus = async (userId) => {
                                 </button>
                               </>
                             )}
-                            
+
                             {(user.isVerified === "ACCEPT" || user.isVerified === "REJECT") && (
                               <button
                                 onClick={() => handleResetStatus(user.user_id)}
@@ -541,7 +548,7 @@ const handleResetStatus = async (userId) => {
                         </td>
                       </tr>
                     ))}
-                    
+
                     {/* Empty state */}
                     {sortedUsers.length === 0 && (
                       <tr>
@@ -554,7 +561,7 @@ const handleResetStatus = async (userId) => {
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Basic pagination */}
               <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
@@ -572,14 +579,14 @@ const handleResetStatus = async (userId) => {
                         <span className="sr-only">Previous</span>
                         <ChevronDown className="h-5 w-5 transform rotate-90" />
                       </button>
-                      
+
                       <button
                         aria-current="page"
                         className="z-10 bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium"
                       >
                         1
                       </button>
-                      
+
                       <button
                         className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                       >
@@ -615,18 +622,18 @@ const handleResetStatus = async (userId) => {
                 <div className="md:w-1/3">
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-500 mb-2">Profile Picture</h4>
-                    <img 
-                      src={selectedUser.profilePicture ? `http://localhost:5555/${selectedUser.profilePicture}` : "/api/placeholder/400/400"} 
-                      alt={selectedUser.user_name} 
+                    <img
+                      src={selectedUser.profilePicture ? `http://localhost:5555/${selectedUser.profilePicture}` : "/api/placeholder/400/400"}
+                      alt={selectedUser.user_name}
                       className="w-full h-auto rounded-lg shadow object-cover"
                     />
                   </div>
-                  
+
                   <div>
                     <h4 className="text-sm font-medium text-gray-500 mb-2">Citizenship Document</h4>
-                    <img 
-                      src={selectedUser.citizenshipPhoto ? `http://localhost:5555/${selectedUser.citizenshipPhoto}` : "/api/placeholder/400/400"} 
-                      alt="Citizenship" 
+                    <img
+                      src={selectedUser.citizenshipPhoto ? `http://localhost:5555/${selectedUser.citizenshipPhoto}` : "/api/placeholder/400/400"}
+                      alt="Citizenship"
                       className="w-full h-auto rounded-lg shadow object-cover"
                     />
                   </div>
@@ -640,22 +647,22 @@ const handleResetStatus = async (userId) => {
                         <h4 className="text-xs font-medium text-gray-500">User ID</h4>
                         <p className="font-medium text-gray-900">{selectedUser.user_id}</p>
                       </div>
-                      
+
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Full Name</h4>
                         <p className="font-medium text-gray-900">{selectedUser.user_name}</p>
                       </div>
-                      
+
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Email Address</h4>
                         <p className="font-medium text-gray-900">{selectedUser.user_email || 'No Email'}</p>
                       </div>
-                      
+
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Contact Number</h4>
                         <p className="font-medium text-gray-900">{selectedUser.contact || 'No Contact'}</p>
                       </div>
-                      
+
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Date of Birth</h4>
                         <p className="font-medium text-gray-900">
@@ -667,7 +674,7 @@ const handleResetStatus = async (userId) => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-6">
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Registration Date</h4>
@@ -679,17 +686,17 @@ const handleResetStatus = async (userId) => {
                           }) : 'Unknown'}
                         </p>
                       </div>
-                      
+
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Municipality</h4>
                         <p className="font-medium text-gray-900">{selectedUser.municipality || 'Not specified'}</p>
                       </div>
-                      
+
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Ward Number</h4>
                         <p className="font-medium text-gray-900">{selectedUser.wardNumber || 'Not specified'}</p>
                       </div>
-                      
+
                       <div>
                         <h4 className="text-xs font-medium text-gray-500">Status</h4>
                         <span className={`px-2 py-1 inline-flex text-xs leading-5font-semibold rounded-full ${getStatusBadgeClass(selectedUser.isVerified)}`}>
@@ -698,7 +705,7 @@ const handleResetStatus = async (userId) => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Action buttons */}
                   <div className="mt-8 flex flex-wrap gap-3">
                     {selectedUser.isVerified === "PENDING" && (
@@ -727,7 +734,7 @@ const handleResetStatus = async (userId) => {
                         </button>
                       </>
                     )}
-                    
+
                     {(selectedUser.isVerified === "ACCEPT" || selectedUser.isVerified === "REJECT") && (
                       <button
                         onClick={() => {
@@ -741,7 +748,7 @@ const handleResetStatus = async (userId) => {
                         Reset Status
                       </button>
                     )}
-                    
+
                     <button
                       onClick={() => {
                         setIsUserDetailOpen(false);
@@ -760,7 +767,7 @@ const handleResetStatus = async (userId) => {
           </div>
         </div>
       )}
-      
+
       {/* Delete Confirmation Modal */}
       {isDeleteConfirmOpen && userToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -768,19 +775,19 @@ const handleResetStatus = async (userId) => {
             <div className="px-6 py-4 border-b">
               <h3 className="text-lg font-medium text-gray-900">Confirm Deletion</h3>
             </div>
-            
+
             <div className="px-6 py-4">
               <div className="flex items-center justify-center">
                 <div className="rounded-full bg-red-100 p-3 text-red-500">
                   <Trash2 className="h-6 w-6" />
                 </div>
               </div>
-              
+
               <p className="mt-4 text-center text-gray-700">
                 Are you sure you want to delete the user <strong>{userToDelete.user_name}</strong>? This action cannot be undone.
               </p>
             </div>
-            
+
             <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3">
               <button
                 onClick={() => setIsDeleteConfirmOpen(false)}

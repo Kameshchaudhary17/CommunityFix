@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import axios from 'axios'
-import loginImage from '../assets/photo/login.png'
+import axios from 'axios';
+import loginImage from '../assets/photo/login.png';
 import { useNavigate } from 'react-router-dom';
-import { Link } from 'lucide-react';
+import ForgotPasswordPopup from '../components/ForgetPassword';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -10,8 +10,9 @@ const LoginPage = () => {
     password: ''
   });
   const [error, setError] = useState('');
-  const [errorType, setErrorType] = useState(''); // Can be 'auth', 'network', or 'server'
-
+  const [errorType, setErrorType] = useState('');
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false); // New state for popup
+  
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -162,12 +163,13 @@ const LoginPage = () => {
             </div>
 
             <div className="flex justify-end">
-              <a 
-                href="#" 
+              <button 
+                type="button"
+                onClick={() => setIsForgotPasswordOpen(true)}
                 className="text-sm text-green-600 hover:text-green-500"
               >
                 forgot password?
-              </a>
+              </button>
             </div>
 
             <button
@@ -193,6 +195,12 @@ const LoginPage = () => {
           </form>
         </div>
       </div>
+      
+      {/* Forgot Password Popup */}
+      <ForgotPasswordPopup 
+        isOpen={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
     </div>
   );
 };

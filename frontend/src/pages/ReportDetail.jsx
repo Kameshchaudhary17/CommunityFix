@@ -26,6 +26,11 @@ const ReportDetail = () => {
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [upvoteCount, setUpvoteCount] = useState(0);
 
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending':

@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { toast, Toaster } from 'react-hot-toast';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 // Define the API base URL - adjust based on your backend configuration
 const API_BASE_URL = 'http://localhost:5555/api';
@@ -27,6 +28,16 @@ const Profile = () => {
     citizenshipPhoto: "/api/placeholder/400/400",
   });
   
+  
+  const navigate = useNavigate();
+
+  
+  const token = localStorage.getItem('token');
+  if (!token) {
+    navigate('/login');
+  }
+    
+
   // Form state for editing
   const [formData, setFormData] = useState({...profile});
   
