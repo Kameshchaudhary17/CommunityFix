@@ -23,7 +23,7 @@ const upload = multer({
 // Create middleware for handling multiple file uploads
 const uploadFields = upload.fields([
     { name: 'profilePicture', maxCount: 1 },
-    { name: 'citizenshipPhoto', maxCount: 1 }
+    { name: 'citizenshipPhoto', maxCount: 5 }
 ]);
 
 const loginUser = async (req, res) => {
@@ -129,16 +129,20 @@ const signupUser = async (req, res) => {
 
         // Get file paths if files were uploaded
         let profilePicture = null;
-        let citizenshipPhoto = null;
+        let citizenshipPhoto = [];
 
         if (req.files) {
-            if (req.files.profilePicture && req.files.profilePicture[0]) {
-                profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, ''); // Remove "storage/"
-            }
-            if (req.files.citizenshipPhoto && req.files.citizenshipPhoto[0]) {
-                citizenshipPhoto = req.files.citizenshipPhoto[0].path.replace(/^storage[\\/]/, ''); // Remove "storage/"
-            }
-        }
+          if (req.files.profilePicture && req.files.profilePicture[0]) {
+              profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, '');
+          }
+          
+          // Handle multiple citizenship photos
+          if (req.files.citizenshipPhoto && req.files.citizenshipPhoto.length > 0) {
+              citizenshipPhoto = req.files.citizenshipPhoto.map(file => 
+                  file.path.replace(/^storage[\\/]/, '')
+              );
+          }
+      }
 
         // Convert wardNumber to integer
         const wardNum = wardNumber ? parseInt(wardNumber) : null;
@@ -153,9 +157,9 @@ const signupUser = async (req, res) => {
             municipality: municipality || null,
             wardNumber: wardNum,
             profilePicture,
-            citizenshipPhoto,
-            dob: dob ? new Date(dob) : null, // Ensure valid DateTime format
-            isVerified: "PENDING", // Default verification status
+            citizenshipPhoto: citizenshipPhoto.length > 0 ? JSON.stringify(citizenshipPhoto) : null,
+            dob: dob ? new Date(dob) : null,
+            isVerified: "PENDING",
         };
 
         // Add role-specific settings
@@ -320,34 +324,34 @@ const resetPassword = async (req, res) => {
 
 // Update user
 const updateUser = async (req, res) => {
-    try {
+  try {
       console.log('Request body:', req.body); // Log request body
       console.log('Request files:', req.files); // Log uploaded files
-  
+      
       const { user_id } = req.params;
-      const { 
-        user_name, 
-        contact, 
-        municipality, 
-        wardNumber,
-        password,
-        dob,
-        isActive,
-        isVerified
+      const {
+          user_name,
+          contact,
+          municipality,
+          wardNumber,
+          password,
+          dob,
+          isActive,
+          isVerified
       } = req.body;
-  
+      
       // Verify user exists
       const user = await prisma.users.findUnique({
-        where: { user_id: parseInt(user_id) }
+          where: { user_id: parseInt(user_id) }
       });
-  
+      
       if (!user) {
-        return res.status(404).json({ error: "User not found." });
+          return res.status(404).json({ error: "User not found." });
       }
-  
+      
       // Prepare update data
       const updateData = {};
-  
+      
       // Only update fields that are provided
       if (user_name) updateData.user_name = user_name;
       if (contact) updateData.contact = contact;
@@ -355,64 +359,86 @@ const updateUser = async (req, res) => {
       if (wardNumber !== undefined) updateData.wardNumber = parseInt(wardNumber);
       if (isActive !== undefined) updateData.isActive = isActive === 'true';
       if (isVerified !== undefined) updateData.isVerified = isVerified === 'true';
-  
+      if (dob) updateData.dob = new Date(dob);
+      
       // If password is provided, hash it
       if (password) {
-        const salt = await bcrypt.genSalt(10);
-        updateData.password = await bcrypt.hash(password, salt);
+          const salt = await bcrypt.genSalt(10);
+          updateData.password = await bcrypt.hash(password, salt);
       }
-  
-      // Update file paths if files were uploaded
+      
+      // Handle file uploads
       if (req.files) {
-        if (req.files.photo && req.files.photo[0]) {
-          // Remove "storage/" prefix from path
-          updateData.profilePicture = req.files.photo[0].path.replace(/^storage[\\/]/, '');
-          
-          // Delete old profile picture if it exists
-          if (user.profilePicture && fs.existsSync('storage/' + user.profilePicture)) {
-            fs.unlinkSync('storage/' + user.profilePicture);
+          // Handle profile picture upload
+          if (req.files.photo && req.files.photo[0]) {
+              // Remove "storage/" prefix from path
+              updateData.profilePicture = req.files.photo[0].path.replace(/^storage[\\/]/, '');
+              
+              // Delete old profile picture if it exists
+              if (user.profilePicture && fs.existsSync('storage/' + user.profilePicture)) {
+                  fs.unlinkSync('storage/' + user.profilePicture);
+              }
+          } else if (req.files.profilePicture && req.files.profilePicture[0]) {
+              updateData.profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, '');
+              
+              // Delete old profile picture if it exists
+              if (user.profilePicture && fs.existsSync('storage/' + user.profilePicture)) {
+                  fs.unlinkSync('storage/' + user.profilePicture);
+              }
           }
-        }
-        if(dob) updateData.dob = new Date(dob)
-        if (req.files.citizenshipPhoto && req.files.citizenshipPhoto[0]) {
-          // Remove "storage/" prefix from path
-          updateData.citizenshipPhoto = req.files.citizenshipPhoto[0].path.replace(/^storage[\\/]/, '');
           
-          // Delete old citizenship photo if it exists
-          if (user.citizenshipPhoto && fs.existsSync('storage/' + user.citizenshipPhoto)) {
-            fs.unlinkSync('storage/' + user.citizenshipPhoto);
+          // Handle citizenship photo uploads (now handling multiple)
+          if (req.files.citizenshipPhoto && req.files.citizenshipPhoto.length > 0) {
+              // Get paths of all citizenship photos
+              const citizenshipPhotoPaths = req.files.citizenshipPhoto.map(file => 
+                  file.path.replace(/^storage[\\/]/, '')
+              );
+              
+              // Delete old citizenship photos if they exist
+              if (user.citizenshipPhoto) {
+                  // Handle both string (old format) and array (new format)
+                  const oldPaths = Array.isArray(user.citizenshipPhoto) 
+                      ? user.citizenshipPhoto 
+                      : [user.citizenshipPhoto];
+                  
+                  oldPaths.forEach(path => {
+                      if (path && fs.existsSync('storage/' + path)) {
+                          fs.unlinkSync('storage/' + path);
+                      }
+                  });
+              }
+              
+              // Save new citizenship photo paths as array
+              updateData.citizenshipPhoto = citizenshipPhotoPaths;
           }
-        }
-        
-        // Handle the case where the field names are profilePicture and citizenshipPhoto
-        if (req.files.profilePicture && req.files.profilePicture[0]) {
-          updateData.profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, '');
-          
-          // Delete old profile picture if it exists
-          if (user.profilePicture && fs.existsSync('storage/' + user.profilePicture)) {
-            fs.unlinkSync('storage/' + user.profilePicture);
-          }
-        }
       }
-  
+      
       // Update user
       const updatedUser = await prisma.users.update({
-        where: { user_id: parseInt(user_id) },
-        data: updateData
+          where: { user_id: parseInt(user_id) },
+          data: updateData
       });
-  
+      
       // Remove sensitive information before sending
       const { password: userPassword, ...userWithoutPassword } = updatedUser;
-  
+      
+      // Process citizenship photos to ensure consistent format for response
+      const processedUser = {
+          ...userWithoutPassword,
+          citizenshipPhoto: Array.isArray(userWithoutPassword.citizenshipPhoto) ? 
+              userWithoutPassword.citizenshipPhoto : 
+              userWithoutPassword.citizenshipPhoto ? [userWithoutPassword.citizenshipPhoto] : []
+      };
+      
       return res.status(200).json({
-        message: "User updated successfully.",
-        user: userWithoutPassword
+          message: "User updated successfully.",
+          user: processedUser
       });
-    } catch (error) {
+  } catch (error) {
       console.error('Update user error:', error);
       return res.status(500).json({ error: "Internal server error." });
-    }
-  };
+  }
+};
 
 // Delete user
 const deleteUser = async (req, res) => {
@@ -499,44 +525,52 @@ const getUsersByLocation = async (req, res) => {
 
 // Get current user's data
 const getCurrentUser = async (req, res) => {
-    try {
-        // Assuming req.user contains the authenticated user's ID (set by auth middleware)
-
-        console.log(req.user)
-        const userId = req.user.id;
-        
-        const user = await prisma.users.findUnique({
-            where: { user_id: userId },
-            select: {
-                user_id: true,
-                user_name: true,
-                user_email: true,
-                contact: true,
-                role: true,
-                municipality: true,
-                wardNumber: true,
-                profilePicture: true,
-                citizenshipPhoto: true,
-                dob: true,
-                isVerified: true,
-                isActive: true,
-                createdAt: true,
-                // Exclude password and other sensitive fields
-            }
-        });
-
-        if (!user) {
-            return res.status(404).json({ error: "User not found." });
-        }
-
-        return res.status(200).json({
-            message: "User retrieved successfully.",
-            user: user
-        });
-    } catch (error) {
-        console.error('Get current user error:', error);
-        return res.status(500).json({ error: "Internal server error." });
-    }
+  try {
+      // Assuming req.user contains the authenticated user's ID (set by auth middleware)
+      console.log(req.user);
+      const userId = req.user.id;
+      
+      const user = await prisma.users.findUnique({
+          where: { user_id: userId },
+          select: {
+              user_id: true,
+              user_name: true,
+              user_email: true,
+              contact: true,
+              role: true,
+              municipality: true,
+              wardNumber: true,
+              profilePicture: true,
+              citizenshipPhoto: true, // This will now be an array or JSON
+              dob: true,
+              isVerified: true,
+              isActive: true,
+              createdAt: true,
+              // Exclude password and other sensitive fields
+          }
+      });
+      
+      if (!user) {
+          return res.status(404).json({ error: "User not found." });
+      }
+      
+      // Process citizenship photos to ensure consistent format
+      // If it's a string (old format), convert to array for frontend consistency
+      const processedUser = {
+          ...user,
+          citizenshipPhoto: Array.isArray(user.citizenshipPhoto) ? 
+              user.citizenshipPhoto : 
+              user.citizenshipPhoto ? [user.citizenshipPhoto] : []
+      };
+      
+      return res.status(200).json({
+          message: "User retrieved successfully.",
+          user: processedUser
+      });
+  } catch (error) {
+      console.error('Get current user error:', error);
+      return res.status(500).json({ error: "Internal server error." });
+  }
 };
 
 // Get users with municipality filtering for admin users
@@ -589,61 +623,69 @@ const getUsers = async (req, res) => {
 
 // Get users for municipality admin - only shows users in their jurisdiction
 const getMunicipalityUsers = async (req, res) => {
-    try {
-        // Assuming req.user contains the authenticated user's data (set by auth middleware)
-        const { id, role } = req.user;
-        console.log(id, role);
-
-        // Municipality admin should only see users in their jurisdiction
-        if (role !== 'MUNICIPALITY') {
-            return res.status(403).json({
-                error: "Access denied. Only municipality admins can access this endpoint."
-            });
-        }
-
-        // Get municipality details of the logged-in admin
-        const municipalitydetails = await prisma.users.findUnique({
-            where: { user_id: id },
-            select: { municipality: true, wardNumber: true }
-        });
-
-        if (!municipalitydetails) {
-            return res.status(404).json({ error: "Municipality details not found." });
-        }
-
-        // Query users with the same municipality and ward number, only if role is USER
-        const users = await prisma.users.findMany({
-            where: {
-                municipality: municipalitydetails.municipality,
-                wardNumber: municipalitydetails.wardNumber,
-                role: "USER" // ✅ Ensure only users with role "USER" are retrieved
-            },
-            select: {
-                user_id: true,
-                user_name: true,
-                user_email: true,
-                contact: true,
-                role: true,
-                dob:true,
-                municipality: true,
-                wardNumber: true,
-                profilePicture: true,
-                isVerified: true,
-                isActive: true,
-                createdAt: true,
-                citizenshipPhoto: true
-            }
-        });
-
-        return res.status(200).json({
-            message: "Users in your jurisdiction retrieved successfully.",
-            count: users.length,
-            users
-        });
-    } catch (error) {
-        console.error('Get municipality users error:', error);
-        return res.status(500).json({ error: "Internal server error." });
-    }
+  try {
+      // Assuming req.user contains the authenticated user's data (set by auth middleware)
+      const { id, role } = req.user;
+      console.log(id, role);
+      
+      // Municipality admin should only see users in their jurisdiction
+      if (role !== 'MUNICIPALITY') {
+          return res.status(403).json({
+              error: "Access denied. Only municipality admins can access this endpoint."
+          });
+      }
+      
+      // Get municipality details of the logged-in admin
+      const municipalitydetails = await prisma.users.findUnique({
+          where: { user_id: id },
+          select: { municipality: true, wardNumber: true }
+      });
+      
+      if (!municipalitydetails) {
+          return res.status(404).json({ error: "Municipality details not found." });
+      }
+      
+      // Query users with the same municipality and ward number, only if role is USER
+      let users = await prisma.users.findMany({
+          where: {
+              municipality: municipalitydetails.municipality,
+              wardNumber: municipalitydetails.wardNumber,
+              role: "USER" // ✅ Ensure only users with role "USER" are retrieved
+          },
+          select: {
+              user_id: true,
+              user_name: true,
+              user_email: true,
+              contact: true,
+              role: true,
+              dob: true,
+              municipality: true,
+              wardNumber: true,
+              profilePicture: true,
+              isVerified: true,
+              isActive: true,
+              createdAt: true,
+              citizenshipPhoto: true
+          }
+      });
+      
+      // Process users to ensure citizenshipPhoto is consistently an array
+      users = users.map(user => ({
+          ...user,
+          citizenshipPhoto: Array.isArray(user.citizenshipPhoto) ? 
+              user.citizenshipPhoto : 
+              user.citizenshipPhoto ? [user.citizenshipPhoto] : []
+      }));
+      
+      return res.status(200).json({
+          message: "Users in your jurisdiction retrieved successfully.",
+          count: users.length,
+          users
+      });
+  } catch (error) {
+      console.error('Get municipality users error:', error);
+      return res.status(500).json({ error: "Internal server error." });
+  }
 };
 
 const sendVerificationNotification = async (userEmail, status) => {

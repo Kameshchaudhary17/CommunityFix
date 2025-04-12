@@ -14,7 +14,7 @@ const SignupPage = () => {
     municipality: '',
     wardNumber: '',
     profilePicture: null,
-    citizenshipPhoto: null,
+    citizenshipPhoto: [], // Array for multiple files
   });
 
   const navigate = useNavigate();
@@ -29,9 +29,34 @@ const SignupPage = () => {
 
   const handleFileChange = (e) => {
     const { name, files } = e.target;
+    
+    // Handle citizenship photos differently (as an array)
+    if (name === "citizenshipPhoto") {
+      // Convert FileList to Array
+      const newFiles = Array.from(files);
+      
+      setFormData((prev) => {
+        // Combine with existing files but limit to 2 total
+        const updatedFiles = [...prev.citizenshipPhoto, ...newFiles].slice(0, 2);
+        return {
+          ...prev,
+          [name]: updatedFiles,
+        };
+      });
+    } else {
+      // Handle other file inputs normally (single file)
+      setFormData((prev) => ({
+        ...prev,
+        [name]: files[0],
+      }));
+    }
+  };
+
+  // Remove a citizenship photo
+  const removeCitizenshipPhoto = (indexToRemove) => {
     setFormData((prev) => ({
       ...prev,
-      [name]: files[0],
+      citizenshipPhoto: prev.citizenshipPhoto.filter((_, index) => index !== indexToRemove),
     }));
   };
 
@@ -48,18 +73,20 @@ const SignupPage = () => {
         }
       });
   
-      // Append photo file if exists
+      // Append profile picture if exists
       if (formData.profilePicture) {
         formDataToSend.append("profilePicture", formData.profilePicture);
       } else {
-        console.log("No photo selected");
+        console.log("No profile picture selected");
       }
 
-      // Append citizenship photo file if exists
-      if (formData.citizenshipPhoto) {
-        formDataToSend.append("citizenshipPhoto", formData.citizenshipPhoto);
+      // Append citizenship photos if they exist (can be multiple)
+      if (formData.citizenshipPhoto && formData.citizenshipPhoto.length > 0) {
+        formData.citizenshipPhoto.forEach(file => {
+          formDataToSend.append("citizenshipPhoto", file);
+        });
       } else {
-        console.log("No citizenship photo selected");
+        console.log("No citizenship photos selected");
       }
   
       console.log("Form data being sent:");
@@ -224,9 +251,9 @@ const SignupPage = () => {
               </div>
             </div>
 
-            {/* Upload Photo */}
+            {/* Upload Profile Picture */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Upload Photo</label>
+              <label className="block text-sm font-medium text-gray-700">Upload Profile Picture</label>
               <div className="mt-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm cursor-pointer hover:bg-gray-50 transition">
                 <label className="flex items-center space-x-2 cursor-pointer w-full">
                   <span className="text-sm text-gray-600">Choose a file</span>
@@ -239,39 +266,76 @@ const SignupPage = () => {
                   />
                 </label>
               </div>
-              {formData.profilePicture && formData.profilePicture.length > 0 && (
+              {formData.profilePicture && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">Selected Profile Picture:</p>
                   <div className="mt-2">
-                    <p className="text-sm text-gray-500">Selected Profile Picture:</p>
-                    <div className="flex gap-2 mt-2">
-                        <img 
-                          key={index} 
-                          src={URL.createObjectURL(file)} 
-                          alt={`profilePicture`} 
-                          className="w-20 h-20 object-cover rounded-md shadow"
-                        />
-                      
-                    </div>
+                    <img 
+                      src={URL.createObjectURL(formData.profilePicture)} 
+                      alt="Profile Preview" 
+                      className="w-20 h-20 object-cover rounded-md shadow" 
+                    />
                   </div>
-                )}
+                </div>
+              )}
             </div>
 
-            {/* Upload Citizenship Photo */}
+            {/* Upload Citizenship Photos - Two separate upload buttons for clarity */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Upload Citizenship Photo</label>
-              <div className="mt-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm cursor-pointer hover:bg-gray-50 transition">
-                <label className="flex items-center space-x-2 cursor-pointer w-full">
-                  <span className="text-sm text-gray-600">Choose a file</span>
-                  <input
-                    type="file"
-                    name="citizenshipPhoto"
-                    onChange={handleFileChange}
-                    className="sr-only"
-                    accept="image/*"
-                  />
-                </label>
-              </div>
-              {formData.citizenshipPhoto && (
-                <p className="mt-1 text-sm text-gray-500">{formData.citizenshipPhoto.name}</p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Citizenship Photos (Front & Back)
+              </label>
+              
+              {/* Show the current count/limit */}
+              <p className="text-sm text-gray-500 mb-2">
+                {formData.citizenshipPhoto.length}/2 photos selected
+              </p>
+              
+              {/* Only show the upload button if less than 2 photos are selected */}
+              {formData.citizenshipPhoto.length < 2 && (
+                <div className="mt-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm cursor-pointer hover:bg-gray-50 transition">
+                  <label className="flex items-center space-x-2 cursor-pointer w-full">
+                    <span className="text-sm text-gray-600">
+                      {formData.citizenshipPhoto.length === 0 
+                        ? "Choose citizenship front side" 
+                        : "Choose citizenship back side"}
+                    </span>
+                    <input
+                      type="file"
+                      name="citizenshipPhoto"
+                      onChange={handleFileChange}
+                      className="sr-only"
+                      accept="image/*"
+                    />
+                  </label>
+                </div>
+              )}
+              
+              {/* Show selected photos with remove option */}
+              {formData.citizenshipPhoto.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex flex-wrap gap-4 mt-2">
+                    {formData.citizenshipPhoto.map((file, index) => (
+                      <div key={index} className="relative">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={`Citizenship ${index === 0 ? 'Front' : 'Back'}`} 
+                          className="w-20 h-20 object-cover rounded-md shadow" 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCitizenshipPhoto(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                        >
+                          ×
+                        </button>
+                        <p className="text-xs text-center mt-1">
+                          {index === 0 ? 'Front' : 'Back'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 

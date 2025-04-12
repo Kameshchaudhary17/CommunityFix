@@ -24,16 +24,16 @@ const UserManagement = () => {
   const [userToDelete, setUserToDelete] = useState(null);
 
   const token = localStorage.getItem('token');
-      const navigate = useNavigate();
-      if (!token) {
-        navigate('/login');
-      }
-      
+  const navigate = useNavigate();
+  if (!token) {
+    navigate('/login');
+  }
+
   // Fetch users from API
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
+
 
       const response = await axios.get('http://localhost:5555/api/auth/getmunicipalityuser', {
         headers: {
@@ -630,12 +630,25 @@ const UserManagement = () => {
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Citizenship Document</h4>
-                    <img
-                      src={selectedUser.citizenshipPhoto ? `http://localhost:5555/${selectedUser.citizenshipPhoto}` : "/api/placeholder/400/400"}
-                      alt="Citizenship"
-                      className="w-full h-auto rounded-lg shadow object-cover"
-                    />
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Citizenship Documents</h4>
+                    {selectedUser.citizenshipPhoto ? (
+                      <div className="space-y-4">
+                        {JSON.parse(selectedUser.citizenshipPhoto).map((photo, index) => (
+                          <img
+                            key={index}
+                            src={`http://localhost:5555/${photo}`}
+                            alt={`Citizenship Document ${index + 1}`}
+                            className="w-full h-auto rounded-lg shadow object-cover"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <img
+                        src="/api/placeholder/400/400"
+                        alt="No Citizenship Document"
+                        className="w-full h-auto rounded-lg shadow object-cover"
+                      />
+                    )}
                   </div>
                 </div>
 
