@@ -59,6 +59,7 @@ exports.getUpvoteCount = async (req, res) => {
   try {
     const { id } = req.params;
     const reportId = parseInt(id);
+    const userId = req.user.id; // Get current user ID
     
     if (isNaN(reportId)) {
       return res.status(400).json({ message: "Invalid report ID" });
@@ -69,11 +70,17 @@ exports.getUpvoteCount = async (req, res) => {
       where: { reportId }
     });
     
+    // Check if current user has upvoted
+    const hasUserUpvoted = await prisma.upvote.findFirst({
+      where: { userId, reportId }
+    });
+    
     res.status(200).json({
-      upvotes: upvoteCount
+      upvotes: upvoteCount,
+      hasUserUpvoted: !!hasUserUpvoted // Convert to boolean
     });
   } catch (error) {
-    console.error("Error getting upvote count:", error);
-    res.status(500).json({ message: "Failed to get upvote count", error: error.message });
+    console.error("Error getting upvote status:", error);
+    res.status(500).json({ message: "Failed to get upvote status", error: error.message });
   }
 };

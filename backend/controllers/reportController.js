@@ -3,32 +3,47 @@ const prisma = new PrismaClient();
 
 // Create a new report
 const createReport = async (req, res) => {
-  const { 
-    title, 
-    description, 
-    municipality, 
-    wardNumber, 
-    latitude, 
-    longitude 
-  } = req.body;
-
-  // Validate input
-  if (!title || !description || !municipality || !wardNumber) {
-    return res.status(400).json({ error: "Please provide all required details." });
-  }
-
   try {
-    // Assuming user ID is available from authentication middleware
-    const userId = req.user.id;
-
-    // Handle photo upload
-    let photo = null;
-
-    if (req.file) { // Use `req.file` instead of `req.files` for single file uploads
-      photo = req.file.path.replace(/^storage[\\/]/, ''); // Remove "storage/" prefix if necessary
+    // Check authentication data
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "User authentication failed" });
     }
-
-    // Create report in database
+    
+    const {
+      title,
+      description,
+      municipality,
+      wardNumber,
+      latitude,
+      longitude
+    } = req.body;
+    
+    // Validate input
+    if (!title || !description || !municipality || !wardNumber) {
+      return res.status(400).json({ error: "Please provide all required details." });
+    }
+    
+    // Handle photo uploads - correctly access photos from req.files.photo
+    let photos = [];
+    
+    if (req.files && req.files.photo && req.files.photo.length > 0) {
+      photos = req.files.photo.map(file => {
+        return file.path.replace(/^storage[\\\/]/, '');
+      });
+    }
+    
+    console.log("Creating report with data:", {
+      title,
+      description,
+      municipality,
+      wardNumber: Number(wardNumber),
+      latitude: latitude ? Number(latitude) : null,
+      longitude: longitude ? Number(longitude) : null,
+      user_id: req.user.id,
+      photo: photos.length > 0 ? photos : null
+    });
+    
+    // Create report in database - Change 'photos' to 'photo' to match your schema
     const newReport = await prisma.reports.create({
       data: {
         title,
@@ -37,18 +52,22 @@ const createReport = async (req, res) => {
         wardNumber: Number(wardNumber),
         latitude: latitude ? Number(latitude) : null,
         longitude: longitude ? Number(longitude) : null,
-        user_id: userId,
-        photo, // Save the processed photo path
+        user_id: req.user.id,
+        photo: photos.length > 0 ? JSON.stringify(photos) : null,  // Changed 'photos' to 'photo'
       }
     });
-
+    
     return res.status(201).json({
       message: "Report created successfully.",
       report: newReport
     });
   } catch (error) {
     console.error('Report creation error:', error);
-    return res.status(500).json({ error: "Internal server error." });
+    return res.status(500).json({
+      error: "Internal server error",
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
@@ -87,6 +106,8 @@ const getAllReports = async (req, res) => {
             user_email: true, 
             contact: true,
             profilePicture: true,
+            createdAt: true
+
           }
         }
       }

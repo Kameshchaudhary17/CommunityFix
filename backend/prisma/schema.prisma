@@ -62,7 +62,7 @@ model reports {
   report_id     Int          @id @default(autoincrement())
   title         String       @db.VarChar(255)
   description   String       @db.Text
-  photo         String?      @db.VarChar(255) // Store image URL
+  photo         Json?
   municipality  String       @db.VarChar(100)
   wardNumber    Int
   latitude      Float

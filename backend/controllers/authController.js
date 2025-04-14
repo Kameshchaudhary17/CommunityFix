@@ -23,7 +23,7 @@ const upload = multer({
 // Create middleware for handling multiple file uploads
 const uploadFields = upload.fields([
     { name: 'profilePicture', maxCount: 1 },
-    { name: 'citizenshipPhoto', maxCount: 5 }
+    { name: 'citizenshipPhoto', maxCount: 2 }
 ]);
 
 const loginUser = async (req, res) => {

@@ -1,4 +1,3 @@
-// Import React and other dependencies
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Calendar, User, ArrowLeft, ThumbsUp, Clock, MessageCircle } from 'lucide-react';
@@ -7,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import Sidebar from '../components/Sidebar';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 // Fix for default marker icon in Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -17,7 +17,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const ReportDetail = () => {
-  const {reportId } = useParams();
+  const { reportId } = useParams();
   const navigate = useNavigate();
   const [report, setReport] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,12 +25,9 @@ const ReportDetail = () => {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [upvoteCount, setUpvoteCount] = useState(0);
+  const [isUpvoting, setIsUpvoting] = useState(false);
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-    }
-
+  // Function to get status color
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending':
@@ -47,218 +44,153 @@ const ReportDetail = () => {
   // Function to get the full image URL
   const getPhotoUrl = (photoPath) => {
     if (!photoPath) return null;
-    
+
     // If the path is already a full URL, return it as is
     if (photoPath.startsWith('http')) {
       return photoPath;
     }
-    
+
     // Otherwise, construct the full URL
     return `http://localhost:5555/${photoPath.replace(/^\.\//, '')}`;
   };
 
+  // Check auth on initial load
   useEffect(() => {
-    // Check if report is upvoted from local storage
-    const upvotedReports = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
-    setIsUpvoted(upvotedReports.includes(parseInt(reportId)));
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+  }, [navigate]);
 
-    const fetchReportDetail = async () => {
-      try {
-        // Make sure reportId is valid
-        if (!reportId) {
-          throw new Error('Invalid report ID');
-        }
-        
-        console.log(`Fetching report with ID: ${reportId}`);
-        
-        // Get auth token from local storage
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.warn('No authentication token found');
-        }
-    
-        // Attempt API call with better error handling
+  // Fetch report data
+  const fetchReportData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await axios.get(
+        `http://localhost:5555/api/report/getReportById/${reportId}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+
+      let reportData = response.data;
+      if (reportData.photo) {
         try {
-          const response = await axios.get(`http://localhost:5555/api/report/getReportById/${reportId}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          console.log('API Response:', response);
-          
-          if (response.data && response.data.report) {
-            console.log('Report data received:', response.data.report);
-            
-            // Format the photo URL properly
-            let reportData = response.data.report;
-            
-            // Handle photo field - convert to array if it's a single string
-            if (reportData.photo) {
-              if (typeof reportData.photo === 'string') {
-                reportData.photos = [getPhotoUrl(reportData.photo)];
-              }
-            }
-            
-            // Handle photos array if it exists
-            if (reportData.photos && Array.isArray(reportData.photos)) {
-              reportData.photos = reportData.photos.map(photo => 
-                typeof photo === 'string' ? getPhotoUrl(photo) : null
-              ).filter(photo => photo !== null);
-            }
-            
-            // If no photos array but photo exists, create photos array
-            if (!reportData.photos && reportData.photo) {
-              reportData.photos = [getPhotoUrl(reportData.photo)];
-            }
-            
-            setReport(reportData);
-            setUpvoteCount(reportData.upvotes || 0);
-            
-            if (reportData.photos && reportData.photos.length > 0) {
-              setSelectedPhoto(reportData.photos[0]);
-            }
-          } else {
-            console.error('Invalid response format or missing report data:', response.data);
-            throw new Error('Report data not found in response');
-          }
-        } catch (apiError) {
-          console.error('API call failed:', apiError);
-          console.error('Error details:', apiError.response?.data || apiError.message);
-          
-          // Try a different API endpoint if the first one fails (optional)
-          try {
-            console.log('Attempting alternative API endpoint...');
-            const altResponse = await axios.get(`http://localhost:5555/api/report/getReportById/${reportId}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            if (altResponse.data) {
-              console.log('Alternative API successful:', altResponse.data);
-              
-              let reportData = altResponse.data;
-              
-              // Format photo URLs
-              if (reportData.photo) {
-                if (typeof reportData.photo === 'string') {
-                  reportData.photos = [getPhotoUrl(reportData.photo)];
-                }
-              }
-              
-              if (reportData.photos && Array.isArray(reportData.photos)) {
-                reportData.photos = reportData.photos.map(photo => 
-                  typeof photo === 'string' ? getPhotoUrl(photo) : null
-                ).filter(photo => photo !== null);
-              }
-              
-              setReport(reportData);
-              setUpvoteCount(reportData.upvotes || 0);
-              
-              if (reportData.photos && reportData.photos.length > 0) {
-                setSelectedPhoto(reportData.photos[0]);
-              }
-              
-              setIsLoading(false);
-              return; // Exit if alternative API works
-            }
-          } catch (altError) {
-            console.error('Alternative API also failed:', altError.message);
-          }
-          
-          // If both APIs fail, fall back to mock data
-          console.log('Using mock data as fallback');
-          
-          // Mock data for testing/development
-          const mockReport = {
-            report_id: parseInt(reportId) || 2,
-            title: "Broken sidewalk on Main Street",
-            description: "The sidewalk has multiple cracks and poses a tripping hazard for pedestrians. Several elderly residents have reported difficulty navigating this area.",
-            latitude: 27.7172,
-            longitude: 85.324,
-            municipality: "Kathmandu",
-            photos: [],
-            status: "Pending",
-            created_at: new Date().toISOString(),
-            user: {
-              user_name: "citizeReporter",
-              user_email: "reporter@example.com"
-            },
-            user_id: 13,
-            wardNumber: 33,
-            upvotes: 5
-          };
-          
-          setReport(mockReport);
-          setUpvoteCount(mockReport.upvotes || 0);
+          const parsedPhotos = JSON.parse(reportData.photo);
+          reportData.photos = Array.isArray(parsedPhotos)
+            ? parsedPhotos.map(photo => getPhotoUrl(photo))
+            : [getPhotoUrl(parsedPhotos)];
+        } catch (parseError) {
+          reportData.photos = [getPhotoUrl(reportData.photo)];
         }
+      }
+      
+      setReport(reportData);
+      if (reportData.photos?.length > 0) {
+        setSelectedPhoto(reportData.photos[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+      setError(error.message || 'Failed to load report details');
+    }
+  };
+
+  // Fetch upvote status
+  const fetchUpvoteStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return { upvotes: 0, hasUserUpvoted: false };
+  
+      const response = await axios.get(
+        `http://localhost:5555/api/upvote/${reportId}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+  
+      if (response.data) {
+        // Set the state directly
+        setUpvoteCount(response.data.upvotes || 0);
+        setIsUpvoted(response.data.hasUserUpvoted || false);
         
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error in fetchReportDetail:', err);
-        setError(err.message || 'Failed to load report details');
+        // Return the data in case we need it elsewhere
+        return {
+          upvotes: response.data.upvotes || 0,
+          hasUserUpvoted: response.data.hasUserUpvoted || false
+        };
+      }
+      
+      return { upvotes: 0, hasUserUpvoted: false };
+    } catch (error) {
+      console.error('Error fetching upvote status:', error);
+      return { upvotes: 0, hasUserUpvoted: false };
+    }
+  };
+
+  // Initial data loading
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        await fetchReportData();
+        await fetchUpvoteStatus();
+        // We don't need to set state again since fetchUpvoteStatus already does it
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+        setError('Failed to load data. Please try again.');
+      } finally {
         setIsLoading(false);
       }
     };
-    
-    fetchReportDetail();
-    
+  
+    if (reportId) {
+      loadData();
+    }
   }, [reportId]);
+  
 
-  const handleUpvote = async (reportId) => {
+  // Handle upvote
+  const handleUpvote = async () => {
+    if (isUpvoting) return;
+    
     try {
-      // Cache the current state before the API call
-      const wasUpvoted = reportId.hasUserUpvoted;
-      
-      // Call the upvote API
-      const response = await axios.post(
-        `http://localhost:5555/api/upvote/${reportId.id}/upvote`,
-        {},
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      console.log('Upvote API response:', response.data);
-      
-      // Optimistic update - Toggle the state and update count immediately 
-      setSuggestions(suggestions.map(s => {
-        if (s.id === reportId.id) {
-          const newCount = wasUpvoted 
-            ? (parseInt(s.upvoteCount) || 0) - 1 
-            : (parseInt(s.upvoteCount) || 0) + 1;
-            
-          return {
-            ...s,
-            upvoteCount: newCount,
-            hasUserUpvoted: !wasUpvoted
-          };
-        }
-        return s;
-      }));
-      
-      // Show appropriate message based on the new state
-      if (!wasUpvoted) {
-        toast.success('Upvoted reportId');
-      } else {
-        toast.success('Removed upvote');
+      setIsUpvoting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('You must be logged in to upvote');
+        navigate('/login');
+        return;
       }
+  
+      // Optimistic update
+      const newIsUpvoted = !isUpvoted;
+      setIsUpvoted(newIsUpvoted);
+      setUpvoteCount(prevCount => newIsUpvoted ? prevCount + 1 : prevCount - 1);
+  
+      // API call
+      const response = await axios.post(
+        `http://localhost:5555/api/upvote/${reportId}`,
+        {},
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+  
+      // Update with actual server response
+      // Note: Using the property names from your backend
+      setUpvoteCount(response.data.upvotes || 0);
       
-      
+      toast.success(response.data.message || 'Upvote successful');
     } catch (error) {
       console.error('Error managing upvote:', error);
-      
-      // Revert the optimistic update if there was an error
+      // Revert optimistic update on error
+      setIsUpvoted(prev => !prev);
+      setUpvoteCount(prev => isUpvoted ? prev - 1 : prev + 1);
       toast.error('Failed to process your upvote. Please try again.');
-      // Refresh data from server to ensure UI is in sync
-      await fetchSuggestions();
+    } finally {
+      setIsUpvoting(false);
     }
   };
+  
 
   if (isLoading) {
     return (
@@ -288,7 +220,7 @@ const ReportDetail = () => {
 
   // Check if we have photo data
   const hasPhotos = report.photos && Array.isArray(report.photos) && report.photos.length > 0;
-  
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -326,7 +258,7 @@ const ReportDetail = () => {
                       <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
                         <div className="flex items-center">
                           <Calendar size={16} className="mr-1" />
-                          <span>{new Date(report.createdAt).toLocaleDateString()}</span>
+                          <span>{new Date(report.createdAt || report.created_at).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center">
                           <User size={16} className="mr-1" />
@@ -340,14 +272,19 @@ const ReportDetail = () => {
                     </div>
                     <button
                       onClick={handleUpvote}
-                      disabled={isUpvoted}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-full ${isUpvoted
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-full ${
+                        isUpvoting ? 'opacity-70 cursor-wait' : ''
+                      } ${
+                        isUpvoted
                           ? 'bg-blue-50 text-blue-500'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        } transition`}
+                      } transition`}
+                      disabled={isUpvoting}
                     >
                       <ThumbsUp size={18} className={isUpvoted ? 'fill-blue-500' : ''} />
-                      <span>{upvoteCount} Upvotes</span>
+                      <span>
+                        {upvoteCount} Upvote{upvoteCount !== 1 ? 's' : ''}
+                      </span>
                     </button>
                   </div>
 
@@ -362,11 +299,10 @@ const ReportDetail = () => {
                       <span className="text-sm">
                         {report.status === 'Resolved'
                           ? 'Resolved on ' + (report.resolved_at ? new Date(report.resolved_at).toLocaleDateString() : 'N/A')
-                          : 'Reported ' + new Date(report.created_at).toLocaleDateString()
+                          : 'Reported ' + new Date(report.createdAt || report.created_at).toLocaleDateString()
                         }
                       </span>
                     </div>
-                    
                   </div>
                 </div>
 
@@ -418,6 +354,7 @@ const ReportDetail = () => {
               </div>
 
               {/* Right Column - Map and Status Info */}
+              {/* The rest of your component remains the same... */}
               <div className="space-y-6">
                 {/* Map Section */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
@@ -454,10 +391,8 @@ const ReportDetail = () => {
                   </div>
                 </div>
 
-                {/* Rest of your code remains the same */}
                 {/* Status Timeline */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
-                  {/* Status timeline content - unchanged */}
                   <h3 className="font-medium text-gray-700 mb-4">Status Updates</h3>
                   <div className="space-y-4">
                     <div className="flex">
@@ -467,7 +402,9 @@ const ReportDetail = () => {
                       </div>
                       <div className="flex-1">
                         <div className="text-sm font-medium">Report Submitted</div>
-                        <div className="text-xs text-gray-500">{new Date(report.created_at).toLocaleString()}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(report.createdAt || report.created_at).toLocaleString()}
+                        </div>
                       </div>
                     </div>
 
@@ -504,7 +441,6 @@ const ReportDetail = () => {
 
                 {/* Similar Reports */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
-                  {/* Similar reports content - unchanged */}
                   <h3 className="font-medium text-gray-700 mb-4">Similar Reports</h3>
                   <div className="space-y-3">
                     <div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition cursor-pointer">
@@ -533,7 +469,6 @@ const ReportDetail = () => {
 
                 {/* Additional Info */}
                 <div className="bg-white rounded-lg shadow-sm p-6">
-                  {/* Additional info content - unchanged */}
                   <h3 className="font-medium text-gray-700 mb-4">Additional Information</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">

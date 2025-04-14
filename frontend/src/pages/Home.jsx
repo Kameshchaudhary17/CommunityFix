@@ -283,7 +283,7 @@ const Home = () => {
                               <span className="mx-2 text-gray-300">•</span>
                               <span className="text-gray-500 text-sm flex items-center">
                                 <Calendar size={14} className="mr-1" />
-                                {new Date(report.created_at).toLocaleDateString()}
+                                {new Date(report.createdAt).toLocaleDateString()}
                               </span>
                             </div>
                             
