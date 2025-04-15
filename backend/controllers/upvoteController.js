@@ -41,6 +41,26 @@ exports.upvoteReport = async (req, res) => {
       },
     });
     
+    // Get the report details to find the creator
+    const report = await prisma.reports.findUnique({
+      where: { report_id: reportId },
+    });
+    
+    // Notify the report creator about the new upvote
+    if (report && report.user_id !== userId) { // Don't notify if user upvoted their own report
+      await prisma.notification.create({
+        data: {
+          userId: report.user_id,
+          type: 'NEW_UPVOTE',
+          content: `Someone upvoted your report: "${report.title}"`,
+          isRead: false,
+          reportId: reportId
+        }
+      });
+      
+      console.log(`Notification sent to user ${report.user_id} about upvote on report ${reportId}`);
+    }
+    
     // Get the updated upvote count
     const upvoteCount = await prisma.upvote.count({ where: { reportId } });
     

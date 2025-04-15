@@ -1,4 +1,3 @@
-// auth.js
 const jwt = require('jsonwebtoken');
 
 const authenticateUser = (req, res, next) => {
@@ -12,7 +11,8 @@ const authenticateUser = (req, res, next) => {
     console.log("Extracted Token:", token);
     
     try {
-        const decoded = jwt.verify(token, "THIS_IS_MY_SECRET_KEY");
+        // Use the environment variable here instead of hardcoding
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         console.log("Decoded Token:", decoded);
         req.user = decoded;
         next();

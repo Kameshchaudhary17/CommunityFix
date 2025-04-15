@@ -8,6 +8,6 @@ router.post('/:id/comments', authMiddleware.authenticateUser, commentController.
 
 router.get('/:id/comments', authMiddleware.authenticateUser, commentController.getComments);
 
-router.delete('/:id/comments/:commentId', authMiddleware.authenticateUser, commentController.deleteComment);
+router.delete('/:suggestionId/comments/:commentId', authMiddleware.authenticateUser, commentController.deleteComment);
 
 module.exports= router;

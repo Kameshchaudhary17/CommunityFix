@@ -1,7 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { notificationService } = require("../services/notificationService");
 
-// Create a new report
+
+
 const createReport = async (req, res) => {
   try {
     // Check authentication data
@@ -57,6 +59,24 @@ const createReport = async (req, res) => {
       }
     });
     
+    // Send notifications to municipality users
+    try {
+      await notificationService.notifyMunicipality({
+        municipality,
+        wardNumber: Number(wardNumber),
+        type: 'NEW_REPORT',
+        title,
+        entityType: 'report',
+        entityId: newReport.report_id, // Change this line if your primary key is named differently
+        creatorId: req.user.id
+      });
+      
+      console.log(`Notifications sent to municipality users about new report: ${title}`);
+    } catch (notificationError) {
+      // Log but don't fail the request if notification sending fails
+      console.error('Error sending notifications:', notificationError);
+    }
+    
     return res.status(201).json({
       message: "Report created successfully.",
       report: newReport
@@ -75,9 +95,9 @@ const createReport = async (req, res) => {
 const getAllReports = async (req, res) => {
   try {
     const userId = req.user?.id;
-
+    
     console.log("User ID:", userId);
-
+    
     // Fetch user details to get municipality and wardNumber
     const user = await prisma.users.findUnique({
       where: { user_id: userId },
@@ -86,13 +106,13 @@ const getAllReports = async (req, res) => {
         wardNumber: true
       }
     });
-
+    
     console.log("User Details:", user);
-
+    
     if (!user || !user.municipality || user.wardNumber === null) {
       return res.status(403).json({ message: 'Access denied: Municipality and Ward Number are required' });
     }
-
+    
     // Fetch reports based on the user's municipality and wardNumber
     const reports = await prisma.reports.findMany({
       where: {
@@ -103,23 +123,43 @@ const getAllReports = async (req, res) => {
         user: {
           select: {
             user_name: true,
-            user_email: true, 
+            user_email: true,
             contact: true,
             profilePicture: true,
             createdAt: true
-
           }
         }
       }
     });
-
-    return res.status(200).json({ reports });
+    
+    // Get upvote information for each report
+    const reportsWithUpvotes = await Promise.all(reports.map(async (report) => {
+      // Count upvotes for this report
+      const upvoteCount = await prisma.upvote.count({
+        where: { reportId: report.report_id } // Use report_id instead of id
+      });
+      
+      // Check if current user has upvoted this report
+      const hasUserUpvoted = await prisma.upvote.findFirst({
+        where: { 
+          userId: userId,
+          reportId: report.report_id // Use report_id instead of id
+        }
+      });
+      
+      return {
+        ...report,
+        upvotes: upvoteCount,
+        hasUserUpvoted: !!hasUserUpvoted
+      };
+    }));
+    
+    return res.status(200).json({ reports: reportsWithUpvotes });
   } catch (error) {
     console.error('Fetch reports error:', error);
     return res.status(500).json({ error: "Internal server error." });
   }
 };
-
 
 // Get report by ID
 const getReportById = async (req, res) => {
@@ -289,35 +329,32 @@ const getUserReports = async (req, res) => {
 };
 
 // Controller function to get a single user report by ID
-const getSingleUserReport = async (req, res) => {
-
+const getSingleUserReports = async (req, res) => {
   try {
-    
-    
-    // Fetch the specific report that belongs to the user
-    const report = await prisma.reports.findFirst({
+    // Fetch all reports that belong to the user
+    const reports = await prisma.reports.findMany({
       where: { 
-        user_id: req.user.id  // Ensure the report belongs to the requesting user
-      },include: {
+        user_id: req.user.id  // Match all reports of the user
+      },
+      include: {
         user: {
           select: {
             user_name: true,
-            user_email: true, 
+            user_email: true,
             contact: true,
             profilePicture: true,
           }
         }
       }
     });
-    
 
-    
-    return res.status(200).json({ report });
+    return res.status(200).json({ reports });
   } catch (error) {
-    console.error('Fetch single user report error:', error);
+    console.error('Fetch user reports error:', error);
     return res.status(500).json({ error: "Internal server error." });
   }
 };
+
 
 const updateReportStatus = async (req, res) => {
   try {
@@ -338,8 +375,8 @@ const updateReportStatus = async (req, res) => {
     // Validate status value
     const validStatuses = ['PENDING', 'IN_PROGRESS', 'COMPLETED'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        message: 'Invalid status. Status must be PENDING, IN_PROGRESS, or COMPLETED' 
+      return res.status(400).json({
+        message: 'Invalid status. Status must be PENDING, IN_PROGRESS, or COMPLETED'
       });
     }
     
@@ -350,20 +387,31 @@ const updateReportStatus = async (req, res) => {
       return res.status(400).json({ message: 'Report ID must be a valid number' });
     }
     
-    // First check if the report exists - using the actual model name from your schema
-    // Your schema definition shows "model reports" not "model report"
+    // First check if the report exists
     const existingReport = await prisma.reports.findUnique({
-      where: { report_id: reportIdInt }
+      where: { report_id: reportIdInt },
+      include: { user: true } // Include user to get the report creator's info for notification
     });
     
     if (!existingReport) {
       return res.status(404).json({ message: 'Report not found' });
     }
     
-    // Update the report status - using the actual model name
+    // Update the report status
     const updatedReport = await prisma.reports.update({
       where: { report_id: reportIdInt },
       data: { status }
+    });
+    
+    // Create notification for the report owner
+    await prisma.notification.create({  // Changed from notifications to notification
+      data: {
+        userId: existingReport.user_id, // Changed from userId to user_id
+        type: 'REPORT_STATUS_CHANGED',
+        content: `Your report has been updated to ${status}`,
+        isRead: false,
+        reportId: reportIdInt
+      }
     });
     
     // Return success response
@@ -376,7 +424,7 @@ const updateReportStatus = async (req, res) => {
     console.error('Error updating report status:', error);
     
     // Provide more detailed error information
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'An error occurred while updating the report status',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -393,6 +441,6 @@ module.exports = {
   updateReport,
   deleteReport,
   getUserReports,
-  getSingleUserReport,
+  getSingleUserReports,
   updateReportStatus
 };

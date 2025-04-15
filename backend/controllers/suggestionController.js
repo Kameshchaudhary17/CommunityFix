@@ -2,17 +2,16 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Create a new suggestion
 exports.createSuggestion = async (req, res) => {
   try {
     const { title, description, municipality, wardNumber } = req.body;
     const userId = req.user.id; // Get user ID from auth middleware
-
+    
     // Validate required fields
     if (!title || !description) {
       return res.status(400).json({ message: "Title and description are required" });
     }
-
+    
     // Fetch user details from the database
     const user = await prisma.users.findUnique({
       where: { user_id: userId },
@@ -23,15 +22,15 @@ exports.createSuggestion = async (req, res) => {
         user_email: true,
       },
     });
-
+    
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
-    // Use user’s municipality and ward if not provided
+    
+    // Use user's municipality and ward if not provided
     const finalMunicipality = municipality || user.municipality;
     const finalWardNumber = wardNumber || user.wardNumber;
-
+    
     // Create the suggestion
     const suggestion = await prisma.suggestion.create({
       data: {
@@ -41,23 +40,42 @@ exports.createSuggestion = async (req, res) => {
         wardNumber: finalWardNumber,
         userId,
       },
-      // include: {
-      //   upvotes,
-      //   user: {
-      //     select: {
-      //       user_name: true,
-      //       user_email: true,
-      //       profilePicture: true
-      //     },
-      //   },
-      // },
     });
-
+    
+    // Send notifications to municipality users
+    try {
+      // Find municipality users to notify
+      const municipalityUsers = await prisma.users.findMany({
+        where: {
+          role: 'MUNICIPALITY',
+          municipality: finalMunicipality,
+          wardNumber: finalWardNumber,
+        },
+      });
+      
+      // Create notifications for each municipality user
+      for (const admin of municipalityUsers) {
+        await prisma.notification.create({
+          data: {
+            userId: admin.user_id,
+            type: 'NEW_SUGGESTION', // You'll need to add this to your NotificationType enum
+            content: `New suggestion: "${title}" has been submitted in ${finalMunicipality}, Ward ${finalWardNumber}`,
+            isRead: false,
+            suggestionId: suggestion.id
+          }
+        });
+      }
+      
+      console.log(`Notifications sent to municipality users about new suggestion: ${title}`);
+    } catch (notificationError) {
+      // Log but don't fail the request if notification sending fails
+      console.error('Error sending notifications:', notificationError);
+    }
+    
     res.status(201).json({
       message: "Suggestion created successfully",
       suggestion,
     });
-
   } catch (error) {
     console.error("Error creating suggestion:", error);
     res.status(500).json({ message: "Failed to create suggestion", error: error.message });
@@ -430,33 +448,33 @@ exports.upvoteSuggestion = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id; // Get user ID from request object
-
+    
     // Convert id to an integer
     const suggestionId = parseInt(id);
     if (isNaN(suggestionId)) {
       return res.status(400).json({ message: "Invalid suggestion ID" });
     }
-
+    
     // Check if user has already upvoted
     const existingUpvote = await prisma.upvote.findFirst({
       where: { userId, suggestionId },
     });
-
+    
     if (existingUpvote) {
       // Remove upvote (undo upvote)
       await prisma.upvote.delete({
         where: { id: existingUpvote.id },
       });
-
+      
       // Get the updated upvote count
       const upvoteCount = await prisma.upvote.count({ where: { suggestionId } });
-
-      return res.status(200).json({ 
-        message: "Upvote removed successfully", 
-        upvotes: upvoteCount 
+      
+      return res.status(200).json({
+        message: "Upvote removed successfully",
+        upvotes: upvoteCount
       });
-    } 
-
+    }
+    
     // If no upvote exists, add a new one
     await prisma.upvote.create({
       data: {
@@ -464,15 +482,33 @@ exports.upvoteSuggestion = async (req, res) => {
         suggestionId,
       },
     });
-
+    
+    // Get the suggestion details
+    const suggestion = await prisma.suggestion.findUnique({
+      where: { id: suggestionId },
+      include: { user: true }
+    });
+    
+    // Notify the suggestion creator about the new upvote
+    if (suggestion && suggestion.userId !== userId) { // Don't notify if user upvoted their own suggestion
+      await prisma.notification.create({
+        data: {
+          userId: suggestion.userId,
+          type: 'NEW_UPVOTE',
+          content: `Someone upvoted your suggestion: "${suggestion.title}"`,
+          isRead: false,
+          suggestionId
+        }
+      });
+    }
+    
     // Get the updated upvote count
     const upvoteCount = await prisma.upvote.count({ where: { suggestionId } });
-
-    res.status(200).json({ 
-      message: "Suggestion upvoted successfully", 
-      upvotes: upvoteCount 
+    
+    res.status(200).json({
+      message: "Suggestion upvoted successfully",
+      upvotes: upvoteCount
     });
-
   } catch (error) {
     console.error("Error upvoting/removing upvote:", error);
     res.status(500).json({ message: "Failed to process upvote", error: error.message });
@@ -481,41 +517,63 @@ exports.upvoteSuggestion = async (req, res) => {
 
 exports.updateSuggestionStatus = async (req, res) => {
   try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      console.log('Update request received:', { id, status, body: req.body });
-
-      // Get valid status values from your enum
-      const validStatuses = ['Pending', 'IN_PROGRESS', 'APPROVED', 'REJECTED'];
-
-      // Validate status value
-      if (!validStatuses.includes(status)) {
-          console.log('Invalid status value:', status);
-          return res.status(400).json({ 
-              error: 'Invalid status value', 
-              message: `Status must be one of: ${validStatuses.join(', ')}`,
-              receivedStatus: status
-          });
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    console.log('Update request received:', { id, status, body: req.body });
+    
+    // Get valid status values from your enum
+    const validStatuses = ['Pending', 'IN_PROGRESS', 'APPROVED', 'REJECTED'];
+    
+    // Validate status value
+    if (!validStatuses.includes(status)) {
+      console.log('Invalid status value:', status);
+      return res.status(400).json({
+        error: 'Invalid status value',
+        message: `Status must be one of: ${validStatuses.join(', ')}`,
+        receivedStatus: status
+      });
+    }
+    
+    // Get the suggestion to find its creator
+    const suggestion = await prisma.suggestion.findUnique({
+      where: { id: parseInt(id) }
+    });
+    
+    if (!suggestion) {
+      return res.status(404).json({
+        error: 'Suggestion not found',
+        message: `Suggestion with ID ${id} does not exist`
+      });
+    }
+    
+    // Update suggestion status
+    const updatedSuggestion = await prisma.suggestion.update({
+      where: { id: parseInt(id) },
+      data: { status },
+    });
+    
+    // Create notification for the suggestion owner
+    await prisma.notification.create({
+      data: {
+        userId: suggestion.userId, 
+        type: 'SUGGESTION_STATUS_CHANGED',
+        content: `Your suggestion "${suggestion.title}" status has been updated to ${status}`,
+        isRead: false,
+        suggestionId: parseInt(id)
       }
-
-      // Update suggestion status
-      const updatedSuggestion = await prisma.suggestion.update({
-          where: { id: parseInt(id) },
-          data: { status },
-      });
-
-      return res.status(200).json({ 
-          success: true, 
-          suggestion: updatedSuggestion 
-      });
+    });
+    
+    return res.status(200).json({
+      success: true,
+      suggestion: updatedSuggestion
+    });
   } catch (error) {
-      console.error('Error updating suggestion status:', error);
-      return res.status(500).json({ 
-          error: 'Failed to update suggestion status',
-          message: error.message 
-      });
+    console.error('Error updating suggestion status:', error);
+    return res.status(500).json({
+      error: 'Failed to update suggestion status',
+      message: error.message
+    });
   }
 };
-
 

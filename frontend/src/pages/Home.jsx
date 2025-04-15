@@ -14,8 +14,8 @@ const StatusFilter = ({ value, onChange }) => {
     >
       <option value="all">All Status</option>
       <option value="pending">Pending</option>
-      <option value="in progress">In Progress</option>
-      <option value="resolved">Resolved</option>
+      <option value="in_progress">In Progress</option>
+      <option value="completed">Completed</option>
     </select>
   );
 };
@@ -40,9 +40,9 @@ const Home = () => {
     switch (status?.toLowerCase()) {
       case 'pending':
         return 'bg-amber-500';
-      case 'in progress':
+      case 'in_progress':
         return 'bg-blue-500';
-      case 'resolved':
+      case 'completed':
         return 'bg-green-500';
       default:
         return 'bg-gray-500';
@@ -53,9 +53,9 @@ const Home = () => {
     switch (status?.toLowerCase()) {
       case 'pending':
         return <div className="w-2 h-2 rounded-full bg-amber-500 mr-2"></div>;
-      case 'in progress':
+      case 'in_progress':
         return <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>;
-      case 'resolved':
+      case 'completed':
         return <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>;
       default:
         return <div className="w-2 h-2 rounded-full bg-gray-500 mr-2"></div>;
@@ -106,7 +106,7 @@ const Home = () => {
           report.upvotes = report.upvotes || 0;
         }
       }));
-      
+      fetchedReports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setReports(fetchedReports);
       setIsLoading(false);
     } catch (err) {

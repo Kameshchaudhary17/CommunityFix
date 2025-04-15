@@ -442,10 +442,9 @@ const NewSuggestionModal = ({ isOpen, onClose, onSubmit }) => {
 const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'submitted': return 'bg-blue-100 text-blue-700';
-      case 'in progress': return 'bg-orange-100 text-orange-700';
+      case 'pending': return 'bg-blue-100 text-blue-700';
+      case 'in_progress': return 'bg-orange-100 text-orange-700';
       case 'approved': return 'bg-green-100 text-green-700';
-      case 'Pending': return 'bg-blue-100 text-blue-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -474,7 +473,7 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote }) => {
               </p>
             </div>
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(suggestion.status)}`}>
-              {suggestion.status || 'Pending'}
+              {suggestion.status || 'pending'}
             </span>
           </div>
           
@@ -512,8 +511,8 @@ const StatusFilter = ({ value, onChange }) => (
       onChange={onChange}
     >
       <option value="all">All Statuses</option>
-      <option value="submitted">Pending</option>
-      <option value="in progress">In Progress</option>
+      <option value="pending">Pending</option>
+      <option value="in_progress">In_Progress</option>
       <option value="approved">Approved</option>
     </select>
     <Filter size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -648,13 +647,19 @@ const Suggestion = () => {
   };
   
   // Filter suggestions based on status and search query
-  const filteredSuggestions = suggestions.filter(suggestion => {
-    const matchesStatus = statusFilter === 'all' || suggestion.status === statusFilter;
-    const matchesSearch = !searchQuery || 
-      suggestion.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      suggestion.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredSuggestions = statusFilter === 'all' 
+  ? suggestions 
+  : suggestions.filter(suggestion => {
+      // Handle null/undefined status
+      const suggestionStatus = (suggestion.status || '').toLowerCase();
+      
+      // Special case for "a" filter - match both "a" and "pending"
+      if (statusFilter === 'a') {
+        return suggestionStatus === 'a' || suggestionStatus === 'pending';
+      }
+      
+      return suggestionStatus === statusFilter.toLowerCase();
+    });
 
   return (
     <div className="flex h-screen bg-gray-100">

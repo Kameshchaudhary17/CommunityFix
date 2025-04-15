@@ -36,6 +36,7 @@ model users {
   reports          reports[]
   suggestions      Suggestion[]
   comments         Comment[]
+  notifications    Notification[]
   upvotes          Upvote[]  // Tracks user upvotes
 
   // Timestamps
@@ -72,6 +73,7 @@ model reports {
   user_id       Int
   user          users        @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   upvotes       Upvote[]
+  notifications    Notification[]
 }
 
 // New enum for report status
@@ -98,6 +100,7 @@ model Suggestion {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   comments         Comment[]
+  notifications    Notification[]
 }
 enum Status {
   Pending
@@ -115,6 +118,8 @@ model Comment {
   suggestion       Suggestion @relation(fields: [suggestionId], references: [id])
   userId           Int
   user             users     @relation(fields: [userId], references: [user_id])
+
+  notifications    Notification[]
   
   // Timestamps
   createdAt        DateTime  @default(now())
@@ -137,7 +142,36 @@ model Upvote {
   @@unique([userId, reportId])
 }
 
+model Notification {
+  id               Int              @id @default(autoincrement())
+  content          String           @db.Text
+  type             NotificationType
+  isRead           Boolean          @default(false)
+  
+  // Foreign keys and relations
+  userId           Int              // The user receiving the notification
+  user             users            @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+  
+  // Optional related entities
+  reportId         Int?
+  report           reports?         @relation(fields: [reportId], references: [report_id], onDelete: Cascade)
+  suggestionId     Int?
+  suggestion       Suggestion?      @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  commentId        Int?
+  comment          Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
 
+enum NotificationType {
+  REPORT_STATUS_CHANGED
+  NEW_COMMENT
+  SUGGESTION_STATUS_CHANGED
+  NEW_UPVOTE
+  ACCOUNT_VERIFIED
+  NEW_REPORT
+}
 
 
 

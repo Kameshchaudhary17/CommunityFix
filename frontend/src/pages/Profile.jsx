@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Edit2, X, Save, User, Mail, Phone, Calendar, MapPin, Home, CreditCard, Upload, Eye, Plus } from 'lucide-react';
+import { Camera, Edit2, X, Save, User, Mail, Phone, Calendar, MapPin, Home, CreditCard, Upload, Eye } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { toast, Toaster } from 'react-hot-toast';
@@ -30,8 +30,6 @@ const Profile = () => {
 
   // Form state for editing
   const [formData, setFormData] = useState({ ...profile });
-  // State to track new citizenship photos for upload
-  const [citizenshipPhotos, setCitizenshipPhotos] = useState([]);
 
   const navigate = useNavigate();
 
@@ -44,8 +42,6 @@ const Profile = () => {
   useEffect(() => {
     if (isEditMode) {
       setFormData({ ...profile });
-      // Reset citizenship photos array when entering edit mode
-      setCitizenshipPhotos([]);
     }
   }, [isEditMode, profile]);
 
@@ -73,11 +69,21 @@ const Profile = () => {
 
           console.log("User data received:", user);
 
-          // Process citizenship photos to ensure consistent format
-          // Ensure it's always an array for frontend display
-          const citizenshipPhotoArray = Array.isArray(user.citizenshipPhoto) 
-            ? user.citizenshipPhoto 
-            : user.citizenshipPhoto ? [user.citizenshipPhoto] : [];
+          // Process citizenship photos to parse the JSON string properly
+          let citizenshipPhotoArray = [];
+          if (user.citizenshipPhoto && user.citizenshipPhoto.length > 0) {
+            try {
+              // The API is returning an array with a JSON string inside
+              // Need to parse this JSON string to get the actual photo filenames
+              const parsedPhotos = JSON.parse(user.citizenshipPhoto[0]);
+              // Make sure parsedPhotos is an array
+              citizenshipPhotoArray = Array.isArray(parsedPhotos) ? parsedPhotos : [parsedPhotos];
+              console.log("Parsed citizenship photos:", citizenshipPhotoArray);
+            } catch (error) {
+              console.error("Error parsing citizenship photos:", error);
+              citizenshipPhotoArray = [];
+            }
+          }
           
           // Map backend user data to our frontend profile state
           setProfile({
@@ -151,16 +157,6 @@ const Profile = () => {
       updateFormData.append('profilePicture', formData.profilePicture);
     }
 
-    // Add all citizenship photos if they exist
-    if (citizenshipPhotos.length > 0) {
-      citizenshipPhotos.forEach(photo => {
-        if (photo.file instanceof File) {
-          console.log("Adding citizenship photo file:", photo.file.name);
-          updateFormData.append('citizenshipPhotos', photo.file); // Changed to match backend field name
-        }
-      });
-    }
-
     // Get user ID - use the first available ID from the profile
     const userId = profile.user_id || profile.id || profile._id;
 
@@ -200,9 +196,17 @@ const Profile = () => {
       const updatedUser = response.data.user || response.data;
 
       // Process citizenship photos to ensure consistent format
-      const citizenshipPhotoArray = Array.isArray(updatedUser.citizenshipPhoto) 
-        ? updatedUser.citizenshipPhoto 
-        : updatedUser.citizenshipPhoto ? [updatedUser.citizenshipPhoto] : [];
+      let citizenshipPhotoArray = [];
+      if (updatedUser.citizenshipPhoto && updatedUser.citizenshipPhoto.length > 0) {
+        try {
+          // Handle the case where API returns JSON string in array
+          const parsedPhotos = JSON.parse(updatedUser.citizenshipPhoto[0]);
+          citizenshipPhotoArray = Array.isArray(parsedPhotos) ? parsedPhotos : [parsedPhotos];
+        } catch (error) {
+          console.error("Error parsing updated citizenship photos:", error);
+          citizenshipPhotoArray = [];
+        }
+      }
 
       // Update the profile state
       setProfile(prevProfile => ({
@@ -223,8 +227,6 @@ const Profile = () => {
         citizenshipPhoto: citizenshipPhotoArray.map(photo => `http://localhost:5555/${photo}`),
       }));
 
-      // Reset citizenship photos array
-      setCitizenshipPhotos([]);
       setIsEditMode(false);
       toast.success("Profile updated successfully!");
     }
@@ -259,7 +261,6 @@ const Profile = () => {
   const handleCancel = () => {
     setIsEditMode(false);
     setFormData({ ...profile });
-    setCitizenshipPhotos([]);
   };
 
   const handleInputChange = (e) => {
@@ -321,62 +322,6 @@ const Profile = () => {
     };
 
     reader.readAsDataURL(file);
-  };
-
-  const handleCitizenshipPhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Check file size (limit to 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(`File too large. Maximum size is 5MB.`);
-      return;
-    }
-
-    // Check file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error(`Invalid file type. Please upload a JPG, PNG, or GIF image.`);
-      return;
-    }
-
-    setIsUploading(true);
-
-    // Create a preview for the UI
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      console.log(`File selected for citizenship photo:`, {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-
-      // Add to citizenship photos array
-      setCitizenshipPhotos(prev => [
-        ...prev,
-        {
-          id: Date.now(), // Unique ID for the list
-          file: file,
-          preview: reader.result
-        }
-      ]);
-
-      setIsUploading(false);
-      toast.success("Citizenship document added");
-    };
-
-    reader.onerror = () => {
-      console.error("Error reading file");
-      toast.error(`Error reading the file. Please try again.`);
-      setIsUploading(false);
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  const removeCitizenshipPhoto = (id) => {
-    setCitizenshipPhotos(prev => prev.filter(photo => photo.id !== id));
-    toast.success("Citizenship document removed");
   };
 
   if (isLoading) {
@@ -647,13 +592,13 @@ const Profile = () => {
                         )}
                       </div>
 
-                      {/* Citizenship Photos */}
+                      {/* Citizenship Photos - Display Only */}
                       <div className="bg-gray-50 rounded-xl p-6 flex flex-col">
                         <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">Citizenship Documents</h3>
 
                         {/* Display existing citizenship photos */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
-                          {profile.citizenshipPhoto.length > 0 ? (
+                          {profile.citizenshipPhoto && profile.citizenshipPhoto.length > 0 ? (
                             profile.citizenshipPhoto.map((photo, index) => (
                               <div key={index} className="flex flex-col items-center">
                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Document {index + 1}</h4>
@@ -678,60 +623,6 @@ const Profile = () => {
                             </div>
                           )}
                         </div>
-
-                        {/* Display new citizenship photos to be uploaded */}
-                        {isEditMode && citizenshipPhotos.length > 0 && (
-                          <>
-                            <h4 className="text-sm font-medium text-gray-700 mb-2 text-center">New Documents</h4>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                              {citizenshipPhotos.map(photo => (
-                                <div key={photo.id} className="flex flex-col items-center">
-                                  <div className="relative mb-3">
-                                    <img
-                                      src={photo.preview}
-                                      alt="New Citizenship Document"
-                                      className="w-full h-32 rounded-lg shadow-md object-cover"
-                                    />
-                                    <button
-                                      onClick={() => removeCitizenshipPhoto(photo.id)}
-                                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:bg-red-600 transition-colors"
-                                    >
-                                      <X size={14} />
-                                    </button>
-                                    <button
-                                      onClick={() => handlePhotoClick(photo.preview, "New Citizenship Document")}
-                                      className="absolute bottom-2 right-2 bg-blue-600 text-white p-1.5 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-                                    >
-                                      <Eye size={14} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-
-                        {isEditMode && (
-                          <label className="w-full cursor-pointer mt-2">
-                            <div className={`flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-blue-500 transition-colors ${isUploading ? 'bg-blue-50' : ''}`}>
-                              {isUploading ? (
-                                <span className="text-blue-600">Uploading...</span>
-                              ) : (
-                                <>
-                                  <Plus size={16} />
-                                  <span>Update citizenship photo</span>
-                                </>
-                              )}
-                            </div>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handleCitizenshipPhotoUpload}
-                              disabled={isUploading}
-                            />
-                          </label>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -744,27 +635,23 @@ const Profile = () => {
 
       {/* Photo View Modal */}
       {isPhotoModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">{selectedPhoto.title}</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl overflow-hidden max-w-3xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-medium">{selectedPhoto.title}</h3>
+              <button
+                onClick={() => setIsPhotoModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
             </div>
-
-            <div className="p-4 flex justify-center">
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
               <img
                 src={selectedPhoto.url}
                 alt={selectedPhoto.title}
-                className="max-h-[70vh] w-auto"
+                className="max-w-full max-h-[70vh] object-contain"
               />
-            </div>
-
-            <div className="flex justify-end p-4 border-t border-gray-200">
-              <button
-                onClick={() => setIsPhotoModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

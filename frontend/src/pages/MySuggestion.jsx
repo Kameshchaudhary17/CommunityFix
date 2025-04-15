@@ -1,37 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, X, ThumbsUp, MessageSquare, Filter, SortDesc,MoreHorizontal, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import axios from 'axios';
 import { toast, Toaster } from 'react-hot-toast';
 
 // Comment Item Component
-const CommentItem = ({ author, text, time, profilePic, userId, commentId, currentUserId, userRole, onDelete }) => (
-  <div className="border-b border-gray-100 py-3">
-    <div className="flex items-start">
-      <img src={profilePic} alt={author} className="w-8 h-8 rounded-full mr-3" />
-      <div className="flex-1">
-        <div className="flex justify-between items-center mb-1">
-          <h4 className="font-medium text-sm">{author}</h4>
-          <div className="flex items-center">
-            <span className="text-xs text-gray-500 mr-2">{time}</span>
-            {(currentUserId === userId || userRole === 'ADMIN') && (
+const CommentItem = ({ 
+  author, 
+  text, 
+  time, 
+  profilePic, 
+  commentId, 
+  onDelete
+}) => {
+  return (
+    <div className="border-b border-gray-100 py-3">
+      <div className="flex items-start">
+        <img src={profilePic} alt={author} className="w-8 h-8 rounded-full mr-3" />
+        <div className="flex-1">
+          <div className="flex justify-between items-center mb-1">
+            <h4 className="font-medium text-sm">{author}</h4>
+            <div className="flex items-center">
+              <span className="text-xs text-gray-500 mr-2">{time}</span>
+              {/* Delete button shown for all comments */}
               <button 
                 onClick={() => onDelete(commentId)}
-                className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
+                className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-gray-100"
+                title="Delete comment"
               >
-                <X size={16} />
+                <Trash2 size={16} />
               </button>
-            )}
+            </div>
           </div>
+          <p className="text-sm text-gray-700">{text}</p>
         </div>
-        <p className="text-sm text-gray-700">{text}</p>
       </div>
     </div>
-  </div>
-);
-
-// Comment Box Modal
+  );
+};
+// Comment Box Modal with updated functionality
 const CommentBox = ({ isOpen, onClose, suggestion, onCommentAdded, onCommentDeleted }) => {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([]);
@@ -111,8 +119,22 @@ const CommentBox = ({ isOpen, onClose, suggestion, onCommentAdded, onCommentDele
     if (!window.confirm('Are you sure you want to delete this comment?')) return;
     
     try {
-      await axios.delete(
-        `http://localhost:5555/api/comment/${suggestion.id}/comments/${commentId}`,
+      // Make sure suggestion.id exists and is a valid number
+      if (!suggestion?.id) {
+        console.error("Missing suggestion ID for delete operation");
+        toast.error('Error: Missing suggestion information');
+        return;
+      }
+      
+      // Log the values we're using
+      console.log(`Attempting to delete - Comment ID: ${commentId}, Suggestion ID: ${suggestion.id}`);
+      
+      // Make sure we're passing the suggestionId correctly in the URL
+      const deleteUrl = `http://localhost:5555/api/comment/${suggestion.id}/comments/${commentId}`;
+      console.log("Delete URL:", deleteUrl);
+      
+      const response = await axios.delete(
+        deleteUrl,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
@@ -125,7 +147,12 @@ const CommentBox = ({ isOpen, onClose, suggestion, onCommentAdded, onCommentDele
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
-      toast.error('Failed to delete comment');
+      
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to delete comment');
+      }
     }
   };
 
@@ -157,10 +184,7 @@ const CommentBox = ({ isOpen, onClose, suggestion, onCommentAdded, onCommentDele
                 text={comment.text}
                 time={new Date(comment.createdAt).toLocaleString()}
                 profilePic={comment.user?.profilePicture ? `http://localhost:5555/${comment.user.profilePicture}` : "/api/placeholder/32/32"}
-                userId={comment.userId}
                 commentId={comment.id}
-                currentUserId={user?.id}
-                userRole={user?.role}
                 onDelete={handleDeleteComment}
               />
             ))
@@ -311,15 +335,29 @@ const NewSuggestionModal = ({ isOpen, onClose, onSuggestionCreated }) => {
 
 // Suggestion card component
 const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDelete, currentUserId }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updatedTitle, setUpdatedTitle] = useState(suggestion.title);
   const [updatedDescription, setUpdatedDescription] = useState(suggestion.description);
-  const token = localStorage.getItem("token");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
-  // Check if the current user is the suggestion author or an admin
-  const canModify = currentUserId && (currentUserId === suggestion.userId || 
-    JSON.parse(localStorage.getItem('userData'))?.role === 'ADMIN');
+  // Get user data to check if user is admin
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const isAdmin = userData?.role === 'MUNICIPALITY' || userData?.role === 'ADMIN';
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleUpdateClick = () => {
     setMenuOpen(false);
@@ -328,12 +366,7 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
 
   const handleDeleteClick = () => {
     setMenuOpen(false);
-    
-    if (!window.confirm("Are you sure you want to delete this suggestion?")) {
-      return;
-    }
-    
-    if (onDelete) {
+    if (window.confirm("Are you sure you want to delete this suggestion?")) {
       onDelete(suggestion.id);
     }
   };
@@ -345,10 +378,23 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
       toast.error('Please fill in all required fields');
       return;
     }
-    
+
     if (onUpdate) {
       onUpdate(suggestion.id, { title: updatedTitle, description: updatedDescription });
       setShowUpdateForm(false);
+    }
+  };
+
+  const getStatusBadgeColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -358,7 +404,11 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
         <div className="update-form">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-semibold text-lg">Update Suggestion</h3>
-            <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowUpdateForm(false)}>
+            <button 
+              className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100" 
+              onClick={() => setShowUpdateForm(false)}
+              aria-label="Close form"
+            >
               <X size={18} />
             </button>
           </div>
@@ -394,14 +444,14 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
             <div className="flex justify-end space-x-2">
               <button
                 type="button"
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 onClick={() => setShowUpdateForm(false)}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 transition-colors"
               >
                 Save Changes
               </button>
@@ -421,44 +471,62 @@ const SuggestionCard = ({ suggestion, onCommentClick, onUpvote, onUpdate, onDele
           <div className="flex-1">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-semibold text-lg">{suggestion.title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-lg">{suggestion.title}</h3>
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeColor(suggestion.status)}`}>
+                    {suggestion.status || 'Pending'}
+                  </span>
+                </div>
                 <p className="text-sm text-gray-500">
                   {suggestion.user?.user_name || "Anonymous"} • {new Date(suggestion.createdAt).toLocaleDateString()}
                 </p>
               </div>
 
-              {canModify && (
-                <div className="relative">
-                  <button className="p-1 rounded-full hover:bg-gray-100" onClick={() => setMenuOpen(!menuOpen)}>
-                    <MoreVertical size={16} className="text-gray-500" />
-                  </button>
+              {/* Show menu for every suggestion card */}
+              <div className="relative" ref={menuRef}>
+                <button 
+                  className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  aria-label="More options"
+                >
+                  <MoreVertical size={16} className="text-gray-500" />
+                </button>
 
-                  {menuOpen && (
-                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                      <button className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center" onClick={handleUpdateClick}>
-                        <Edit size={14} className="mr-2" />
-                        Update
-                      </button>
-                      <button className="w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center" onClick={handleDeleteClick}>
-                        <Trash2 size={14} className="mr-2" />
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                {menuOpen && (
+                  <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-lg z-10 border border-gray-200 py-1">
+                    <button 
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      onClick={handleUpdateClick}
+                    >
+                      <Edit size={14} className="mr-2 text-gray-500" />
+                      Edit
+                    </button>
+                    <button 
+                      className="w-full px-4 py-2 text-left text-red-600 text-sm hover:bg-red-50 flex items-center"
+                      onClick={handleDeleteClick}
+                    >
+                      <Trash2 size={14} className="mr-2" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <p className="text-gray-700 my-2">{suggestion.description}</p>
+            
             <div className="flex gap-2">
               <button 
-                className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                className={`flex items-center ${suggestion.hasUserUpvoted ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'} transition-colors`}
                 onClick={() => onUpvote(suggestion.id)}
               >
                 <ThumbsUp size={16} className={`mr-1 ${suggestion.hasUserUpvoted ? 'fill-current' : ''}`} />
                 <span>{suggestion.upvoteCount || 0}</span>
               </button>
-              <button className="flex items-center text-gray-500 hover:text-blue-600" onClick={() => onCommentClick(suggestion)}>
+              <button 
+                className="flex items-center text-gray-500 hover:text-blue-600 transition-colors" 
+                onClick={() => onCommentClick(suggestion)}
+              >
                 <MessageSquare size={16} className="mr-1" />
                 <span>{suggestion.commentCount || 0}</span>
               </button>
@@ -479,8 +547,8 @@ const StatusFilter = ({ value, onChange }) => (
       onChange={onChange}
     >
       <option value="all">All Statuses</option>
-      <option value="submitted">Pending</option>
-      <option value="in progress">In Progress</option>
+      <option value="pending">Pending</option>
+      <option value="in_progress">In_Progress</option>
       <option value="approved">Approved</option>
     </select>
     <Filter size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -664,10 +732,22 @@ const Suggestion = () => {
     ));
   };
   
-  // Filter suggestions based on status only
-  const filteredSuggestions = suggestions.filter(suggestion => {
-    return statusFilter === 'all' || suggestion.status === statusFilter;
-  });
+
+
+// With this:
+const filteredSuggestions = statusFilter === 'all' 
+  ? suggestions 
+  : suggestions.filter(suggestion => {
+      // Handle null/undefined status
+      const suggestionStatus = (suggestion.status || '').toLowerCase();
+      
+      // Special case for "a" filter - match both "a" and "pending"
+      if (statusFilter === 'a') {
+        return suggestionStatus === 'a' || suggestionStatus === 'pending';
+      }
+      
+      return suggestionStatus === statusFilter.toLowerCase();
+    });
 
   return (
     <div className="flex h-screen bg-gray-100">

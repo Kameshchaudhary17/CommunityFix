@@ -8,15 +8,15 @@ import { useNavigate } from 'react-router-dom';
 // StatusFilter component
 const StatusFilter = ({ value, onChange }) => {
   return (
-    <select 
-      value={value} 
+    <select
+      value={value}
       onChange={onChange}
       className="px-3 py-2 rounded-lg border border-gray-300 bg-white"
     >
       <option value="all">All Status</option>
       <option value="pending">Pending</option>
-      <option value="in progress">In Progress</option>
-      <option value="resolved">Resolved</option>
+      <option value="in_progress">In Progress</option>
+      <option value="completed">Completed</option>
     </select>
   );
 };
@@ -37,27 +37,27 @@ const MyReport = () => {
       navigate('/login');
     }
   }, [navigate]);
-  
+
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending':
         return 'bg-amber-500';
-      case 'in progress':
+      case 'in_progress':
         return 'bg-blue-500';
-      case 'resolved':
+      case 'completed':
         return 'bg-green-500';
       default:
         return 'bg-gray-500';
     }
   };
-  
+
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending':
         return <div className="w-2 h-2 rounded-full bg-amber-500 mr-2"></div>;
-      case 'in progress':
+      case 'in_progress':
         return <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>;
-      case 'resolved':
+      case 'completed':
         return <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>;
       default:
         return <div className="w-2 h-2 rounded-full bg-gray-500 mr-2"></div>;
@@ -68,47 +68,41 @@ const MyReport = () => {
     // Load upvoted reports from localStorage
     const savedUpvotes = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
     setUpvotedReports(savedUpvotes);
-    
+
     const fetchReports = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const token = localStorage.getItem('token');
         if (!token) {
           throw new Error('Authentication required');
         }
-        
+
         const response = await axios.get('http://localhost:5555/api/report/getsinglereport', {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         });
 
         // Check if response.data.report exists and set it to state
-        if (response.data && response.data.report) {
-          let reportsData = Array.isArray(response.data.report) ? response.data.report : [response.data.report];
-          
-          // Fetch upvote counts for each report
+        if (response.data && response.data.reports) {
+          let reportsData = Array.isArray(response.data.reports) ? response.data.reports : [response.data.reports];
+
           const reportsWithUpvotes = await Promise.all(reportsData.map(async (report) => {
             try {
-              // Fetch upvote count for this report
               const upvoteResponse = await axios.get(`http://localhost:5555/api/upvote/${report.report_id}`, {
                 headers: {
                   'Authorization': `Bearer ${token}`,
                   'Content-Type': 'application/json'
                 }
               });
-              
-              // Add upvotes count to report object
               return {
                 ...report,
                 upvotes: upvoteResponse.data.upvotes || 0
               };
             } catch (err) {
               console.error(`Error fetching upvotes for report ${report.report_id}:`, err);
-              // Return report with default upvote count if fetch fails
               return {
                 ...report,
                 upvotes: 0
@@ -116,11 +110,12 @@ const MyReport = () => {
             }
           }));
           
-          setReports(reportsWithUpvotes);
+          const sortedReports = reportsWithUpvotes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          setReports(reportsWithUpvotes, sortedReports);
         } else {
-          // If no reports found, set empty array
           setReports([]);
         }
+
       } catch (err) {
         console.error('Error fetching reports:', err);
         setError(err.response?.data?.error || err.message || 'Failed to fetch reports');
@@ -135,7 +130,7 @@ const MyReport = () => {
   const handleUpvote = async (reportId) => {
     const token = localStorage.getItem('token');
     const isUpvoted = upvotedReports.includes(reportId);
-    
+
     try {
       // The backend uses the same endpoint for both adding and removing upvotes
       const response = await axios.post(`http://localhost:5555/api/upvote/${reportId}`, {}, {
@@ -144,10 +139,10 @@ const MyReport = () => {
           'Content-Type': 'application/json'
         }
       });
-      
+
       // Get updated upvote count from the response
       const updatedUpvoteCount = response.data.upvotes;
-      
+
       // Update local state based on the response
       if (isUpvoted) {
         // Remove from upvoted reports if we were upvoting before
@@ -160,14 +155,14 @@ const MyReport = () => {
         setUpvotedReports(newUpvotedReports);
         localStorage.setItem('upvotedReports', JSON.stringify(newUpvotedReports));
       }
-      
+
       // Update the reports list with the new upvote count from the server
-      setReports(reports.map(report => 
-        report.report_id === reportId 
-          ? { ...report, upvotes: updatedUpvoteCount } 
+      setReports(reports.map(report =>
+        report.report_id === reportId
+          ? { ...report, upvotes: updatedUpvoteCount }
           : report
       ));
-      
+
     } catch (err) {
       console.error('Error toggling upvote:', err);
       alert('Failed to toggle upvote. Please try again later.');
@@ -193,7 +188,7 @@ const MyReport = () => {
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
           <h2 className="text-xl font-semibold mb-2">Error Loading Reports</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
           >
@@ -205,15 +200,15 @@ const MyReport = () => {
   }
 
   // Ensure reports is an array before filtering
-  const filteredSuggestions = reports && Array.isArray(reports) 
+  const filteredSuggestions = reports && Array.isArray(reports)
     ? reports.filter(report => {
-        const matchesStatus = statusFilter === 'all' || 
-                            (report.status?.toLowerCase() === statusFilter.toLowerCase());
-        const matchesSearch = !searchQuery || 
-                            report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            report.description?.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesStatus && matchesSearch;
-      })
+      const matchesStatus = statusFilter === 'all' ||
+        (report.status?.toLowerCase() === statusFilter.toLowerCase());
+      const matchesSearch = !searchQuery ||
+        report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesStatus && matchesSearch;
+    })
     : [];
 
   return (
@@ -224,7 +219,7 @@ const MyReport = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Hearder */}
-        <Hearder/>
+        <Hearder />
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6">
@@ -235,20 +230,20 @@ const MyReport = () => {
               <div className="text-sm text-gray-600">
                 {filteredSuggestions.length} report{filteredSuggestions.length !== 1 ? 's' : ''}
               </div>
-              
+
               <div className="flex gap-2">
-                <StatusFilter 
+                <StatusFilter
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                 />
-                
+
                 <button className="px-3 py-2 rounded-lg border border-gray-300 flex items-center hover:bg-gray-50">
                   <SortDesc size={16} className="mr-1" />
                   <span>Sort</span>
                 </button>
               </div>
             </div>
-            
+
             {filteredSuggestions.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-10 text-center">
                 <div className="text-5xl mb-4">📋</div>
@@ -260,8 +255,8 @@ const MyReport = () => {
             ) : (
               <div className="grid grid-cols-1 gap-6">
                 {filteredSuggestions.map((report) => (
-                  <div 
-                    key={report.report_id} 
+                  <div
+                    key={report.report_id}
                     className="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"
                   >
                     <div className="p-5">
@@ -289,39 +284,38 @@ const MyReport = () => {
                                 {new Date(report.createdAt).toLocaleDateString()}
                               </span>
                             </div>
-                            
+
                             <div className="flex items-center mt-1">
                               {getStatusIcon(report.status)}
                               <span className="text-sm font-medium">
                                 {report.status || 'Unknown'}
                               </span>
                             </div>
-                            
+
                             <h4 className="font-semibold text-gray-800 mt-3">{report.title}</h4>
                             <p className="text-gray-600 mt-1 line-clamp-2">{report.description}</p>
-                            
+
                             <div className="flex items-center text-sm text-gray-500 mt-3">
                               <MapPin size={16} className="mr-1" />
                               <span>{report.municipality || 'Unknown'}, Ward {report.wardNumber || 'N/A'}</span>
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex flex-col items-end space-y-3">
-                          <button 
+                          <button
                             onClick={() => handleUpvote(report.report_id)}
-                            className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-sm transition ${
-                              upvotedReports.includes(report.report_id)
+                            className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-sm transition ${upvotedReports.includes(report.report_id)
                                 ? 'bg-blue-50 text-blue-500'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
+                              }`}
                             aria-label={upvotedReports.includes(report.report_id) ? "Remove upvote" : "Upvote"}
                           >
                             <ThumbsUp size={16} className={upvotedReports.includes(report.report_id) ? 'fill-blue-500' : ''} />
                             <span>{report.upvotes || 0}</span>
                           </button>
-                          
-                          <button 
+
+                          <button
                             onClick={() => viewReportDetail(report.report_id)}
                             className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
                           >
@@ -331,7 +325,7 @@ const MyReport = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {report.photos && report.photos.length > 0 && (
                       <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
                         <div className="flex space-x-2 overflow-x-auto py-1 scrollbar-thin">

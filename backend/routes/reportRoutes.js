@@ -31,7 +31,7 @@ router.post('/createReport', uploadFields, authMiddleware.authenticateUser, repo
 router.put('/:reportId/status', authMiddleware.authenticateUser, reportController.updateReportStatus)
 router.get('/getReport', authMiddleware.authenticateUser, reportController.getAllReports)
 router.get('/getReportById/:reportId', authMiddleware.authenticateUser, reportController.getReportById)
-router.get('/getsinglereport', authMiddleware.authenticateUser, reportController.getSingleUserReport)
+router.get('/getsinglereport', authMiddleware.authenticateUser, reportController.getSingleUserReports)
 
 
 module.exports = router;
