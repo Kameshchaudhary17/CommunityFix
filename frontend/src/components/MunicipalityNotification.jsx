@@ -1,21 +1,21 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Search, Bell, X, Check, ChevronRight, Clock, User } from "lucide-react";
+import { Search, Bell, X, Check, ChevronRight, Clock } from "lucide-react";
 import axios from "axios";
 import { io } from "socket.io-client";
 
-const Header = () => {
+const MunicipalityHeader = () => {
   const [user, setUser] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [profileImageError, setProfileImageError] = useState(false);
   const notificationRef = useRef(null);
   const token = localStorage.getItem('token');
   const [socket, setSocket] = useState(null);
   
   const API_BASE_URL = "http://localhost:5555";
   
+
   // Set up socket connection when component mounts
   useEffect(() => {
     if (token) {
@@ -95,6 +95,7 @@ const Header = () => {
     
     const fetchNotifications = async () => {
       try {
+        // Fixed endpoint - use the correct endpoint from your notification controller
         const response = await axios.get(`${API_BASE_URL}/api/notification/notifications`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -253,9 +254,9 @@ const Header = () => {
   // Get notification link based on type
   const getNotificationLink = (notification) => {
     if (notification.reportId) {
-      return `/myreport/${notification.reportId}`;
+      return `/reports/${notification.reportId}`;
     } else if (notification.suggestionId) {
-      return `/mysuggestion/${notification.suggestionId}`;
+      return `/suggestions/${notification.suggestionId}`;
     } else {
       return '#';
     }
@@ -277,32 +278,6 @@ const Header = () => {
       default:
         return <Bell className="text-gray-500" size={18} />;
     }
-  };
-  
-  // Render user avatar - either actual image or fallback
-  const renderUserAvatar = () => {
-    // If there's a profile picture URL and no error loading it
-    if (user?.profilePicture && !profileImageError) {
-      return (
-        <img
-          src={`${API_BASE_URL}/${user.profilePicture}`}
-          alt="Profile"
-          className="w-10 h-10 rounded-full border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition"
-          onError={() => setProfileImageError(true)}
-        />
-      );
-    }
-    
-    // Show fallback avatar with user's initials or icon
-    return (
-      <div className="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-blue-100 flex items-center justify-center text-blue-700 font-medium">
-        {user?.user_name ? (
-          user.user_name.charAt(0).toUpperCase()
-        ) : (
-          <User size={20} />
-        )}
-      </div>
-    );
   };
 
   return (
@@ -405,13 +380,20 @@ const Header = () => {
             
             <Link to="/profile">
               <div className="flex items-center space-x-3">
-                {renderUserAvatar()}
+                <img
+                  src={user?.profilePicture ? `${API_BASE_URL}/${user.profilePicture}` : "https://via.placeholder.com/40"}
+                  alt="Profile"
+                  className="w-10 h-10 rounded-full border-2 border-white shadow-sm cursor-pointer hover:opacity-80 transition"
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/40";
+                  }}
+                />
                 <div>
                   <div className="font-medium">
                     {user ? user.user_name : "User"}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {"Citizen"}
+                    {user?.role || "Citizen"}
                   </div>
                 </div>
               </div>
@@ -423,4 +405,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default MunicipalityHeader;

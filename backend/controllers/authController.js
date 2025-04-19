@@ -4,6 +4,7 @@ const nodemailer = require('nodemailer');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 require('dotenv').config();
+const {notificationService} = require('../services/notificationService')
 const { multer, storage } = require('../middleware/fileMiddleware');
 const fs = require('fs');
 
@@ -87,51 +88,50 @@ const loginUser = async (req, res) => {
 };
 
 
-// Note: The signupUser function now receives req and res after multer processes the files
 const signupUser = async (req, res) => {
-    try {
-        const { 
-            user_name, 
-            user_email, 
-            password, 
-            role = 'USER',
-            contact,
-            municipality,
-            wardNumber,
-            dob
-        } = req.body;
+  try {
+      const {
+          user_name,
+          user_email,
+          password,
+          role = 'USER',
+          contact,
+          municipality,
+          wardNumber,
+          dob
+      } = req.body;
 
-        // Validate required fields
-        if (!user_name || !user_email || !password) {
-            return res.status(400).json({ error: "Please provide name, email, and password." });
-        }
+      // Validate required fields
+      if (!user_name || !user_email || !password) {
+          return res.status(400).json({ error: "Please provide name, email, and password." });
+      }
 
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(user_email)) {
-            return res.status(400).json({ error: "Invalid email format." });
-        }
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(user_email)) {
+          return res.status(400).json({ error: "Invalid email format." });
+      }
 
-        // Validate password strength
-        if (password.length < 8) {
-            return res.status(400).json({ error: "Password must be at least 8 characters long." });
-        }
+      // Validate password strength
+      if (password.length < 8) {
+          return res.status(400).json({ error: "Password must be at least 8 characters long." });
+      }
 
-        // Check if user already exists
-        const oldUser = await prisma.users.findFirst({ where: { user_email } });
-        if (oldUser) {
-            return res.status(409).json({ error: "User already exists with this email." });
-        }
+      // Check if user already exists
+      const oldUser = await prisma.users.findFirst({ where: { user_email } });
+      if (oldUser) {
+          return res.status(409).json({ error: "User already exists with this email." });
+      }
 
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash(password, salt);
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(password, salt);
 
-        // Get file paths if files were uploaded
-        let profilePicture = null;
-        let citizenshipPhoto = [];
+      // Get file paths if files were uploaded
+      let profilePicture = null;
+      let citizenshipPhoto = [];
 
-        if (req.files) {
+      if (req.files) {
           if (req.files.profilePicture && req.files.profilePicture[0]) {
               profilePicture = req.files.profilePicture[0].path.replace(/^storage[\\/]/, '');
           }
@@ -144,59 +144,165 @@ const signupUser = async (req, res) => {
           }
       }
 
-        // Convert wardNumber to integer
-        const wardNum = wardNumber ? parseInt(wardNumber) : null;
+      // Convert wardNumber to integer
+      const wardNum = wardNumber ? parseInt(wardNumber) : null;
 
-        // Prepare user data
-        const userData = {
-            user_name,
-            user_email,
-            password: hash,
-            role,
-            contact: contact || null,
-            municipality: municipality || null,
-            wardNumber: wardNum,
-            profilePicture,
-            citizenshipPhoto: citizenshipPhoto.length > 0 ? JSON.stringify(citizenshipPhoto) : null,
-            dob: dob ? new Date(dob) : null,
-            isVerified: "PENDING",
-        };
+      // Check if municipality and ward exist if provided
+      if (municipality && wardNumber) {
+          const municipalityExists = await prisma.users.findFirst({
+              where: {
+                  role: 'MUNICIPALITY',
+                  municipality: municipality,
+                  wardNumber: wardNum,
+                  isVerified: 'ACCEPT' // Only consider verified municipality accounts
+              }
+          });
 
-        // Add role-specific settings
-        if (role === 'MUNICIPALITY') {
-            // Validate municipality-specific fields
-            if (!municipality || !wardNumber) {
-                return res.status(400).json({ error: "Municipality and ward number are required for municipality accounts." });
-            }
-            userData.isVerified = "ACCEPT"; // Automatically accept municipality accounts
-        }
+          if (!municipalityExists && role === 'USER') {
+              // Find the municipality admin to notify
+              const municipalityAdmin = await prisma.users.findFirst({
+                  where: {
+                      role: 'MUNICIPALITY',
+                      municipality: municipality,
+                      isVerified: 'ACCEPT'
+                  }
+              });
+              
+              // If there's a municipality admin, send them a notification using the service
+              if (municipalityAdmin) {
+                  try {
+                      // FIXED: Direct database insertion for WARD_REQUEST (not in enum)
+                      await prisma.notification.create({
+                          data: {
+                              userId: municipalityAdmin.user_id,
+                              content: `A user tried to register for Ward ${wardNum} in ${municipality} which doesn't exist in our records.`,
+                              type: "NEW_REPORT", // Using valid enum value from schema
+                          }
+                      });
+                  } catch (notificationError) {
+                      console.error('Failed to create notification:', notificationError);
+                      // Continue processing, don't throw error
+                  }
+              }
+              
+              return res.status(400).json({ 
+                  error: `This ward (${wardNum}) and municipality (${municipality}) combination doesn't exist. You cannot register for this location.` 
+              });
+          }
+      }
 
-        // Create new user
-        const newUser = await prisma.users.create({
-            data: userData
-        });
+      // Prepare user data
+      const userData = {
+          user_name,
+          user_email,
+          password: hash,
+          role,
+          contact: contact || null,
+          municipality: municipality || null,
+          wardNumber: wardNum,
+          profilePicture,
+          citizenshipPhoto: citizenshipPhoto.length > 0 ? JSON.stringify(citizenshipPhoto) : null,
+          dob: dob ? new Date(dob) : null,
+          isVerified: "PENDING",
+      };
 
-        // Remove sensitive information before sending
-        const { password: userPassword, ...userWithoutPassword } = newUser;
+      // Add role-specific settings
+      if (role === 'MUNICIPALITY') {
+          // Validate municipality-specific fields
+          if (!municipality || !wardNumber) {
+              return res.status(400).json({ error: "Municipality and ward number are required for municipality accounts." });
+          }
+          userData.isVerified = "ACCEPT"; // Automatically accept municipality accounts
+      }
 
-        // Send the response back
-        res.status(201).json({
-            message: role === 'MUNICIPALITY' 
-                ? "Municipality account successfully registered." 
-                : "User successfully registered.",
-            user: userWithoutPassword
-        });
-    } catch (error) {
-        console.error('Signup error:', error);
-        
-        // Handle unique constraint violations
-        if (error.code === 'P2002') {
-            return res.status(409).json({ error: "An account with this email already exists." });
-        }
-        
-        res.status(500).json({ error: "Internal server error." });
-    }
+      // Create new user
+      const newUser = await prisma.users.create({
+          data: userData
+      });
+
+      // Send notification to municipality admin if a regular user registers
+      if (role === 'USER' && municipality && wardNum) {
+          try {
+              // Find the municipality admin for the user's ward
+              const municipalityAdmin = await prisma.users.findFirst({
+                  where: {
+                      role: 'MUNICIPALITY',
+                      municipality: municipality,
+                      wardNumber: wardNum,
+                      isVerified: 'ACCEPT'
+                  }
+              });
+
+              // If we found the specific ward admin
+              if (municipalityAdmin) {
+                  // FIXED: Direct database insertion instead of service
+                  await prisma.notification.create({
+                      data: {
+                          userId: municipalityAdmin.user_id,
+                          content: `${user_name} has registered as a new user in your ward (Ward ${wardNum}, ${municipality}).`,
+                          type: "NEW_REPORT", // Using valid enum value from schema
+                      }
+                  });
+              } else {
+                  // If no specific ward admin, try to find any admin for this municipality
+                  const generalMunicipalityAdmin = await prisma.users.findFirst({
+                      where: {
+                          role: 'MUNICIPALITY',
+                          municipality: municipality,
+                          isVerified: 'ACCEPT'
+                      }
+                  });
+
+                  if (generalMunicipalityAdmin) {
+                      // FIXED: Direct database insertion
+                      await prisma.notification.create({
+                          data: {
+                              userId: generalMunicipalityAdmin.user_id,
+                              content: `${user_name} has registered as a new user in Ward ${wardNum}, ${municipality}.`,
+                              type: "NEW_REPORT", // Using valid enum value from schema
+                          }
+                      });
+                  }
+              }
+              
+              // ADDED: Welcome notification for the new user
+              await prisma.notification.create({
+                  data: {
+                      userId: newUser.user_id,
+                      content: `Welcome to the platform, ${user_name}! Your account has been successfully created.`,
+                      type: "ACCOUNT_VERIFIED", // Using valid enum value from schema
+                  }
+              });
+              
+          } catch (notificationError) {
+              console.error('Failed to send notification on signup:', notificationError.message);
+              // Continue processing, don't throw error
+          }
+      }
+
+      // Remove sensitive information before sending
+      const userWithoutPassword = {...newUser};
+      delete userWithoutPassword.password;
+
+      // Send the response back
+      res.status(201).json({
+          message: role === 'MUNICIPALITY'
+              ? "Municipality account successfully registered."
+              : "User successfully registered.",
+          user: userWithoutPassword
+      });
+  } catch (error) {
+      console.error('Signup error:', error);
+      
+      // Handle unique constraint violations
+      if (error.code === 'P2002') {
+          return res.status(409).json({ error: "An account with this email already exists." });
+      }
+      
+      res.status(500).json({ error: "Internal server error." });
+  }
 };
+
 
 const sendEmail = async (to, subject, text) => {
   const transporter = nodemailer.createTransport({

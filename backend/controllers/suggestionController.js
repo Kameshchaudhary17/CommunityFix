@@ -1,6 +1,7 @@
 // controllers/suggestionController.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { notificationService } = require("../services/notificationService");
 
 exports.createSuggestion = async (req, res) => {
   try {

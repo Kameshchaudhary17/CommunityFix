@@ -16,6 +16,13 @@ const SignupPage = () => {
     profilePicture: null,
     citizenshipPhoto: [], // Array for multiple files
   });
+  
+  // Add state for error messages
+  const [errors, setErrors] = useState({
+    form: '',
+    password: '',
+    municipality: ''
+  });
 
   const navigate = useNavigate();
 
@@ -25,6 +32,14 @@ const SignupPage = () => {
       ...prev,
       [name]: value,
     }));
+    
+    // Clear error when user starts typing again
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -60,15 +75,35 @@ const SignupPage = () => {
     }));
   };
 
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = { form: '', password: '', municipality: '' };
+    
+    // Password validation
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.password = "Passwords do not match";
+      isValid = false;
+    }
+    
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setErrors({ form: '', password: '', municipality: '' });
+    
+    // Validate form before submission
+    if (!validateForm()) return;
   
     try {
       const formDataToSend = new FormData();
   
       // Append all non-file fields
       Object.keys(formData).forEach((key) => {
-        if (key !== "profilePicture" && key !== "citizenshipPhoto") {
+        if (key !== "profilePicture" && key !== "citizenshipPhoto" && key !== "confirmPassword") {
           formDataToSend.append(key, formData[key]);
         }
       });
@@ -76,8 +111,6 @@ const SignupPage = () => {
       // Append profile picture if exists
       if (formData.profilePicture) {
         formDataToSend.append("profilePicture", formData.profilePicture);
-      } else {
-        console.log("No profile picture selected");
       }
 
       // Append citizenship photos if they exist (can be multiple)
@@ -85,13 +118,6 @@ const SignupPage = () => {
         formData.citizenshipPhoto.forEach(file => {
           formDataToSend.append("citizenshipPhoto", file);
         });
-      } else {
-        console.log("No citizenship photos selected");
-      }
-  
-      console.log("Form data being sent:");
-      for (let pair of formDataToSend.entries()) {
-        console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
       }
   
       const response = await axios.post("http://localhost:5555/api/auth/signup", formDataToSend, {
@@ -105,8 +131,27 @@ const SignupPage = () => {
         navigate("/login");
       }
     } catch (error) {
-      console.error("Error uploading file:", error.response?.data || error.message || error);
-      // You might want to show an error message to the user here
+      console.error("Error during signup:", error);
+      
+      // Handle specific error for municipality/ward validation
+      if (error.response?.data?.error && error.response.data.error.includes("ward") && error.response.data.error.includes("municipality")) {
+        setErrors(prev => ({
+          ...prev,
+          municipality: error.response.data.error
+        }));
+      } else if (error.response?.data?.error) {
+        // Handle other API errors
+        setErrors(prev => ({
+          ...prev,
+          form: error.response.data.error
+        }));
+      } else {
+        // Handle network or other errors
+        setErrors(prev => ({
+          ...prev,
+          form: "An error occurred during signup. Please try again."
+        }));
+      }
     }
   };
   
@@ -145,6 +190,13 @@ const SignupPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Display form-level errors */}
+          {errors.form && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded relative">
+              {errors.form}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Full Name */}
@@ -207,7 +259,7 @@ const SignupPage = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className={`mt-1 block w-full px-3 py-2 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                 required
               />
             </div>
@@ -220,9 +272,12 @@ const SignupPage = () => {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className={`mt-1 block w-full px-3 py-2 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                 required
               />
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+              )}
             </div>
 
             {/* Municipality and Ward Number */}
@@ -234,7 +289,7 @@ const SignupPage = () => {
                   name="municipality"
                   value={formData.municipality}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`mt-1 block w-full px-3 py-2 border ${errors.municipality ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                   required
                 />
               </div>
@@ -245,11 +300,18 @@ const SignupPage = () => {
                   name="wardNumber"
                   value={formData.wardNumber}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`mt-1 block w-full px-3 py-2 border ${errors.municipality ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                   required
                 />
               </div>
             </div>
+            
+            {/* Municipality/Ward error message */}
+            {errors.municipality && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                <p className="text-sm">{errors.municipality}</p>
+              </div>
+            )}
 
             {/* Upload Profile Picture */}
             <div>

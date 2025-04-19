@@ -6,6 +6,7 @@ import Home from './pages/Home'
 import './App.css'
 import LandingPage from './pages/Landing'
 import Sidebar from './components/Sidebar'
+import Notification from './pages/Notification'
 import Header from './components/Header'
 import MunicipalityDashboard from './pages/MunicipalityDashboard'
 import ReportPage from './pages/ReportPage'
@@ -39,6 +40,7 @@ function App() {
       <Route path = '/municipality' element = {<MunicipalityDashboard />}/>
       <Route path = '/admin' element = {<AdminDashboard />}/>
       <Route path = '/profile' element = {<Profile />}/>
+      <Route path = '/notification' element = {<Notification />}/>
       <Route path = '/register' element = {< AddMunicipality />}/>
       <Route path = '/suggestion' element = {< Suggestion />}/>
       <Route path = '/mysuggestion' element = {< MySuggestion />}/>
