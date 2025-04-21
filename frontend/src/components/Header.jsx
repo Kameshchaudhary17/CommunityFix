@@ -1,21 +1,29 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Search, Bell, X, Check, ChevronRight, Clock, User } from "lucide-react";
 import axios from "axios";
 import { io } from "socket.io-client";
 
-const Header = () => {
+const Header = (props) => {
   const [user, setUser] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [profileImageError, setProfileImageError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const notificationRef = useRef(null);
+  const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const [socket, setSocket] = useState(null);
   
   const API_BASE_URL = "http://localhost:5555";
   
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const query = params.get('search') || '';
+    setSearchQuery(query);
+  }, [location]);
+
   // Set up socket connection when component mounts
   useEffect(() => {
     if (token) {
@@ -279,6 +287,44 @@ const Header = () => {
     }
   };
   
+  // Handle search input changes
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+  
+  // Handle search submission
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // Navigate to the reports page with search query
+      navigate(`/home?search=${encodeURIComponent(searchQuery.trim())}`);
+      
+      // Call the onSearch prop if provided
+      if (props.onSearch) {
+        props.onSearch(searchQuery.trim());
+      }
+    }
+  };
+  
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    
+    // Also call onSearch with empty string if provided
+    if (props.onSearch) {
+      props.onSearch('');
+    }
+    
+    // Navigate to home without search query
+    navigate('/home');
+  };
+  
+  // Handle key press for search
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit(e);
+    }
+  };
+  
   // Render user avatar - either actual image or fallback
   const renderUserAvatar = () => {
     // If there's a profile picture URL and no error loading it
@@ -307,16 +353,28 @@ const Header = () => {
 
   return (
     <div>
-      <header className="bg-white shadow-sm px-6 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div className="relative flex-1 max-w-xl">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Search reports"
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-            />
-          </div>
+    <header className="bg-white shadow-sm px-6 py-4 sticky top-0 z-10">
+      <div className="flex items-center justify-between">
+        <div className="relative flex-1 max-w-xl">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search reports"
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onKeyPress={handleKeyPress}
+            className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+          />
+          {searchQuery && (
+            <button 
+              onClick={handleClearSearch}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
           <div className="flex items-center space-x-4">
             <div className="relative">
               <button
@@ -395,7 +453,7 @@ const Header = () => {
                   </div>
                   
                   <div className="p-3 border-t border-gray-200 text-center">
-                    <Link to="/notification" className="text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowNotifications(false)}>
+                    <Link to="/notificationuser" className="text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowNotifications(false)}>
                       View all notifications
                     </Link>
                   </div>

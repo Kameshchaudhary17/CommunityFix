@@ -69,6 +69,46 @@ const notificationService = {
     }
   },
   
+/**
+ * Notifies users about a new suggestion
+ * @param {Object} suggestion The newly created suggestion
+ * @param {Object} creator The user who created the suggestion
+ */
+async notifyNewSuggestion(suggestion, creator) {
+  try {
+    // Notify municipality admins about the new suggestion
+    await this.notifyMunicipality({
+      municipality: suggestion.municipality,
+      wardNumber: suggestion.wardNumber,
+      type: 'NEW_SUGGESTION',
+      title: suggestion.title,
+      entityType: 'suggestion',
+      entityId: suggestion.id,
+      creatorId: creator.user_id || creator.id
+    });
+    
+    // If Socket.IO is available, broadcast to relevant rooms
+    if (getIO) {
+      const io = getIO();
+      
+      // Broadcast to global suggestions channel
+      io.emit('new_suggestion', {
+        id: suggestion.id,
+        title: suggestion.title,
+        municipality: suggestion.municipality,
+        wardNumber: suggestion.wardNumber,
+        createdBy: creator.user_name
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error notifying about new suggestion:', error);
+    return false;
+  }
+},
+
+
   /**
    * Notifies users in a municipality about a new report or suggestion
    * @param {Object} params Parameters

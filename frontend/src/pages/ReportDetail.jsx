@@ -439,56 +439,7 @@ const ReportDetail = () => {
                   </div>
                 </div>
 
-                {/* Similar Reports */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="font-medium text-gray-700 mb-4">Similar Reports</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition cursor-pointer">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0"></div>
-                      <div>
-                        <div className="font-medium text-gray-800">Similar issue in {report.municipality}</div>
-                        <div className="text-sm text-gray-500">Reported 3 days ago</div>
-                      </div>
-                    </div>
 
-                    <div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition cursor-pointer">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0"></div>
-                      <div>
-                        <div className="font-medium text-gray-800">Issue reported in nearby Ward {parseInt(report.wardNumber) + 1}</div>
-                        <div className="text-sm text-gray-500">Reported 1 week ago</div>
-                      </div>
-                    </div>
-
-                    <div className="text-center mt-4">
-                      <button className="text-blue-500 hover:text-blue-600 text-sm font-medium">
-                        View more similar reports
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Info */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="font-medium text-gray-700 mb-4">Additional Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Report ID:</span>
-                      <span className="font-medium">{report.report_id}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Category:</span>
-                      <span className="font-medium">{report.category || 'General'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Priority:</span>
-                      <span className="font-medium">{report.priority || 'Medium'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Assigned To:</span>
-                      <span className="font-medium">{report.assigned_to || 'Not yet assigned'}</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

@@ -14,10 +14,10 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
-import MunicipalitySidebar from '../components/MunicipalitySidebar';
-import MunicipalityHeader from '../components/MunicipalityHeader';
+import MunicipalitySidebar from '../components/Sidebar';
+import MunicipalityHeader from '../components/Header';
 
-const Notification = () => {
+const NotificationUser = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -509,4 +509,4 @@ const Notification = () => {
   );
 };
 
-export default Notification;
+export default NotificationUser;

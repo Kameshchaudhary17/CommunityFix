@@ -21,6 +21,7 @@ exports.createSuggestion = async (req, res) => {
         wardNumber: true,
         user_name: true,
         user_email: true,
+        user_id: true,
       },
     });
     
@@ -41,6 +42,9 @@ exports.createSuggestion = async (req, res) => {
         wardNumber: finalWardNumber,
         userId,
       },
+      include: {
+        user: true, // Include user data in the response
+      },
     });
     
     // Send notifications to municipality users
@@ -50,22 +54,20 @@ exports.createSuggestion = async (req, res) => {
         where: {
           role: 'MUNICIPALITY',
           municipality: finalMunicipality,
-          wardNumber: finalWardNumber,
+          user_id: { not: userId }, // Exclude the creator
         },
       });
       
-      // Create notifications for each municipality user
-      for (const admin of municipalityUsers) {
-        await prisma.notification.create({
-          data: {
-            userId: admin.user_id,
-            type: 'NEW_SUGGESTION', // You'll need to add this to your NotificationType enum
-            content: `New suggestion: "${title}" has been submitted in ${finalMunicipality}, Ward ${finalWardNumber}`,
-            isRead: false,
-            suggestionId: suggestion.id
-          }
-        });
-      }
+      // Use the existing notifyMunicipality function which handles creating notifications
+      await notificationService.notifyMunicipality({
+        municipality: finalMunicipality,
+        wardNumber: finalWardNumber,
+        type: 'NEW_SUGGESTION',
+        title: suggestion.title,
+        entityType: 'suggestion',
+        entityId: suggestion.id,
+        creatorId: userId
+      });
       
       console.log(`Notifications sent to municipality users about new suggestion: ${title}`);
     } catch (notificationError) {
@@ -74,8 +76,9 @@ exports.createSuggestion = async (req, res) => {
     }
     
     res.status(201).json({
+      success: true,
       message: "Suggestion created successfully",
-      suggestion,
+      data: suggestion,
     });
   } catch (error) {
     console.error("Error creating suggestion:", error);
@@ -85,51 +88,111 @@ exports.createSuggestion = async (req, res) => {
 
 exports.getUserSuggestions = async (req, res) => {
   try {
-      const  userId  = req.user.id; // Get userId from authenticated user
-      if (!userId || isNaN(userId)) {
-          return res.status(400).json({ message: 'Invalid User ID' });
-      }
-
-      // Fetch suggestions where userId matches
-      const suggestions = await prisma.suggestion.findMany({
-          where: { userId: parseInt(userId) },
-          include: {
-              user: {
-                  select: {
-                      user_name: true,
-                      user_email: true,
-                      municipality: true,
-                      wardNumber: true,
-                      profilePicture: true
-                  }
-              },
-              comments: {
-                  include: {
-                   
-                      user: {
-                          select: {
-                              user_name: true
-                          }
-                      }
-                  },
-                  orderBy: { createdAt: 'desc' }
-              }, upvotes: true
-          }
-      });
-
-      if (!suggestions.length) {
-        return res.status(200).json({ message: 'No suggestions found', suggestions: [] });
-    }
+    const userId = req.user.id; // Get userId from authenticated user
     
+    // Fetch suggestions where userId matches
+    const suggestions = await prisma.suggestion.findMany({
+      where: { userId: parseInt(userId) },
+      include: {
+        user: {
+          select: {
+            user_name: true,
+            user_email: true,
+            municipality: true,
+            wardNumber: true,
+            profilePicture: true
+          }
+        },
+        comments: {
+          include: {
+            user: {
+              select: {
+                user_name: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        },
+        upvotes: true,
+        _count: {
+          select: {
+            upvotes: true,
+            comments: true
+          }
+        }
+      }
+    });
 
-      res.status(200).json({ suggestions });
+    // Process suggestions to include hasUserUpvoted flag
+    const processedSuggestions = suggestions.map(suggestion => {
+      const hasUserUpvoted = suggestion.upvotes.some(upvote => upvote.userId === userId);
+      
+      return {
+        ...suggestion,
+        hasUserUpvoted
+      };
+    });
+
+    res.status(200).json({ 
+      suggestions: processedSuggestions
+    });
   } catch (error) {
-      console.error('Error fetching user suggestions:', error);
-      res.status(500).json({ message: 'Failed to fetch suggestions', error: error.message });
+    console.error('Error fetching user suggestions:', error);
+    res.status(500).json({ message: 'Failed to fetch suggestions', error: error.message });
   }
 };
 
-
+exports.upvoteSuggestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    const suggestionId = parseInt(id);
+    if (isNaN(suggestionId)) {
+      return res.status(400).json({ message: "Invalid suggestion ID" });
+    }
+    
+    // Check if user has already upvoted
+    const existingUpvote = await prisma.upvote.findFirst({
+      where: { userId, suggestionId },
+    });
+    
+    let hasUserUpvoted = false;
+    
+    if (existingUpvote) {
+      // Remove upvote (undo upvote)
+      await prisma.upvote.delete({
+        where: { id: existingUpvote.id },
+      });
+      
+      hasUserUpvoted = false;
+    } else {
+      // If no upvote exists, add a new one
+      await prisma.upvote.create({
+        data: {
+          userId,
+          suggestionId,
+        },
+      });
+      
+      hasUserUpvoted = true;
+      
+      // Notification code...
+    }
+    
+    // Get the updated upvote count
+    const upvoteCount = await prisma.upvote.count({ where: { suggestionId } });
+    
+    res.status(200).json({
+      message: hasUserUpvoted ? "Suggestion upvoted successfully" : "Upvote removed successfully",
+      upvotes: upvoteCount,
+      hasUserUpvoted: hasUserUpvoted
+    });
+  } catch (error) {
+    console.error("Error upvoting/removing upvote:", error);
+    res.status(500).json({ message: "Failed to process upvote", error: error.message });
+  }
+};
 
 // Get all suggestions with filtering options
 exports.getSuggestions = async (req, res) => {
@@ -253,8 +316,6 @@ exports.getSuggestions = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch suggestions', error: error.message });
   }
 };
-
-
 // Get similar suggestions by municipality and ward
 exports.getSimilarSuggestions = async (req, res) => {
   try {
@@ -444,77 +505,6 @@ exports.deleteSuggestion = async (req, res) => {
   }
 };
 
-// Upvote a suggestion
-exports.upvoteSuggestion = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id; // Get user ID from request object
-    
-    // Convert id to an integer
-    const suggestionId = parseInt(id);
-    if (isNaN(suggestionId)) {
-      return res.status(400).json({ message: "Invalid suggestion ID" });
-    }
-    
-    // Check if user has already upvoted
-    const existingUpvote = await prisma.upvote.findFirst({
-      where: { userId, suggestionId },
-    });
-    
-    if (existingUpvote) {
-      // Remove upvote (undo upvote)
-      await prisma.upvote.delete({
-        where: { id: existingUpvote.id },
-      });
-      
-      // Get the updated upvote count
-      const upvoteCount = await prisma.upvote.count({ where: { suggestionId } });
-      
-      return res.status(200).json({
-        message: "Upvote removed successfully",
-        upvotes: upvoteCount
-      });
-    }
-    
-    // If no upvote exists, add a new one
-    await prisma.upvote.create({
-      data: {
-        userId,
-        suggestionId,
-      },
-    });
-    
-    // Get the suggestion details
-    const suggestion = await prisma.suggestion.findUnique({
-      where: { id: suggestionId },
-      include: { user: true }
-    });
-    
-    // Notify the suggestion creator about the new upvote
-    if (suggestion && suggestion.userId !== userId) { // Don't notify if user upvoted their own suggestion
-      await prisma.notification.create({
-        data: {
-          userId: suggestion.userId,
-          type: 'NEW_UPVOTE',
-          content: `Someone upvoted your suggestion: "${suggestion.title}"`,
-          isRead: false,
-          suggestionId
-        }
-      });
-    }
-    
-    // Get the updated upvote count
-    const upvoteCount = await prisma.upvote.count({ where: { suggestionId } });
-    
-    res.status(200).json({
-      message: "Suggestion upvoted successfully",
-      upvotes: upvoteCount
-    });
-  } catch (error) {
-    console.error("Error upvoting/removing upvote:", error);
-    res.status(500).json({ message: "Failed to process upvote", error: error.message });
-  }
-};
 
 exports.updateSuggestionStatus = async (req, res) => {
   try {

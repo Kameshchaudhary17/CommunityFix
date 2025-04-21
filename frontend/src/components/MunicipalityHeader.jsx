@@ -394,16 +394,12 @@ const Header = () => {
                     )}
                   </div>
                   
-                  <div className="p-3 border-t border-gray-200 text-center">
-                    <Link to="/notifications" className="text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowNotifications(false)}>
-                      View all notifications
-                    </Link>
-                  </div>
+                  
                 </div>
               )}
             </div>
             
-            <Link to="/profile">
+            <Link to="/municipalityprofile">
               <div className="flex items-center space-x-3">
                 {renderUserAvatar()}
                 <div>

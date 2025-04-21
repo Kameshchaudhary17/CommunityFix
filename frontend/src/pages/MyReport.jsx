@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, ThumbsUp, Calendar, Eye, SortDesc } from 'lucide-react';
+import { MapPin, ThumbsUp, Calendar, Eye, SortDesc, Trash2, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
 import Hearder from '../components/Header';
@@ -21,6 +21,44 @@ const StatusFilter = ({ value, onChange }) => {
   );
 };
 
+// Confirmation Modal Component
+const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, reportTitle }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-fade-in">
+        <div className="flex items-center justify-center mb-4 text-red-500">
+          <div className="bg-red-100 p-3 rounded-full">
+            <AlertTriangle size={24} />
+          </div>
+        </div>
+        
+        <h3 className="text-xl font-bold text-center mb-2">Delete Report</h3>
+        
+        <p className="text-gray-600 text-center mb-6">
+          Are you sure you want to delete "<span className="font-medium">{reportTitle}</span>"? This action cannot be undone.
+        </p>
+        
+        <div className="flex justify-center space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition"
+          >
+            Delete Report
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MyReport = () => {
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +67,11 @@ const MyReport = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-
+  
+  // Delete confirmation state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -64,65 +106,65 @@ const MyReport = () => {
     }
   };
 
+  const fetchReports = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await axios.get('http://localhost:5555/api/report/getsinglereport', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      // Check if response.data.report exists and set it to state
+      if (response.data && response.data.reports) {
+        let reportsData = Array.isArray(response.data.reports) ? response.data.reports : [response.data.reports];
+
+        const reportsWithUpvotes = await Promise.all(reportsData.map(async (report) => {
+          try {
+            const upvoteResponse = await axios.get(`http://localhost:5555/api/upvote/${report.report_id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            return {
+              ...report,
+              upvotes: upvoteResponse.data.upvotes || 0
+            };
+          } catch (err) {
+            console.error(`Error fetching upvotes for report ${report.report_id}:`, err);
+            return {
+              ...report,
+              upvotes: 0
+            };
+          }
+        }));
+        
+        const sortedReports = reportsWithUpvotes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setReports(sortedReports);
+      } else {
+        setReports([]);
+      }
+
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      setError(err.response?.data?.error || err.message || 'Failed to fetch reports');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Load upvoted reports from localStorage
     const savedUpvotes = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
     setUpvotedReports(savedUpvotes);
-
-    const fetchReports = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Authentication required');
-        }
-
-        const response = await axios.get('http://localhost:5555/api/report/getsinglereport', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
-        // Check if response.data.report exists and set it to state
-        if (response.data && response.data.reports) {
-          let reportsData = Array.isArray(response.data.reports) ? response.data.reports : [response.data.reports];
-
-          const reportsWithUpvotes = await Promise.all(reportsData.map(async (report) => {
-            try {
-              const upvoteResponse = await axios.get(`http://localhost:5555/api/upvote/${report.report_id}`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                }
-              });
-              return {
-                ...report,
-                upvotes: upvoteResponse.data.upvotes || 0
-              };
-            } catch (err) {
-              console.error(`Error fetching upvotes for report ${report.report_id}:`, err);
-              return {
-                ...report,
-                upvotes: 0
-              };
-            }
-          }));
-          
-          const sortedReports = reportsWithUpvotes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-          setReports(reportsWithUpvotes, sortedReports);
-        } else {
-          setReports([]);
-        }
-
-      } catch (err) {
-        console.error('Error fetching reports:', err);
-        setError(err.response?.data?.error || err.message || 'Failed to fetch reports');
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
     fetchReports();
   }, []);
@@ -169,6 +211,53 @@ const MyReport = () => {
     }
   };
 
+  const openDeleteModal = (report) => {
+    setReportToDelete(report);
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setReportToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!reportToDelete) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Updated to use query parameter 'id' instead of route parameter
+      await axios.delete(`http://localhost:5555/api/report/${reportToDelete.report_id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Remove the deleted report from state
+      setReports(reports.filter(report => report.report_id !== reportToDelete.report_id));
+      
+      // Show success message (optional)
+      const successToast = document.createElement('div');
+      successToast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in';
+      successToast.textContent = 'Report deleted successfully';
+      document.body.appendChild(successToast);
+      
+      setTimeout(() => {
+        document.body.removeChild(successToast);
+      }, 3000);
+      
+    } catch (err) {
+      console.error('Error deleting report:', err);
+      alert('Failed to delete report. Please try again later.');
+    } finally {
+      setIsDeleting(false);
+      closeDeleteModal();
+    }
+  };
   const viewReportDetail = (reportId) => {
     navigate(`/reportdetail/${reportId}`);
   };
@@ -315,13 +404,23 @@ const MyReport = () => {
                             <span>{report.upvotes || 0}</span>
                           </button>
 
-                          <button
-                            onClick={() => viewReportDetail(report.report_id)}
-                            className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            <Eye size={18} />
-                            <span>View Details</span>
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => viewReportDetail(report.report_id)}
+                              className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              <Eye size={18} />
+                              <span>View</span>
+                            </button>
+                            
+                            <button
+                              onClick={() => openDeleteModal(report)}
+                              className="flex items-center space-x-1 text-red-500 hover:text-red-600 font-medium"
+                            >
+                              <Trash2 size={18} />
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -352,6 +451,25 @@ const MyReport = () => {
           </div>
         </main>
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        reportTitle={reportToDelete?.title || ''}
+      />
+      
+      {/* Add CSS animation for modals and notifications */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

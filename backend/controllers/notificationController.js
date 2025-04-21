@@ -79,12 +79,25 @@ const notificationController = {
    */
   async markAsRead(req, res) {
     try {
-      const { notificationId } = req.params;
+      console.log("Request params:", req.params);
+    console.log("Notification ID from params:", req.params.notificationId);
+    
+    const notificationId = parseInt(req.params.notificationId);
+    console.log("Parsed notification ID:", notificationId);
+
+      
+if (isNaN(notificationId)) {
+  return res.status(400).json({
+    success: false,
+    message: "Invalid notification ID format"
+  });
+}
       const userId = req.user.id || req.user.user_id;
       
       // Ensure notification belongs to the authenticated user
       const notification = await prisma.notification.findUnique({
-        where: { id: parseInt(notificationId) }
+        where: { id: notificationId }
+
       });
       
       if (!notification) {
@@ -100,6 +113,7 @@ const notificationController = {
           message: "Access denied: This notification doesn't belong to you"
         });
       }
+      
       
       // Update notification
       const updatedNotification = await prisma.notification.update({
@@ -170,12 +184,13 @@ const notificationController = {
    */
   async deleteNotification(req, res) {
     try {
-      const { notificationId } = req.params;
+      // Changed from notificationId to id to match the route parameter
+      const { id } = req.params;  // This was the issue - it should be 'id' not 'notificationId'
       const userId = req.user.id || req.user.user_id;
       
       // Ensure notification belongs to the authenticated user
       const notification = await prisma.notification.findUnique({
-        where: { id: parseInt(notificationId) }
+        where: { id: parseInt(id) }  // Use 'id' here
       });
       
       if (!notification) {
@@ -194,7 +209,7 @@ const notificationController = {
       
       // Delete notification
       await prisma.notification.delete({
-        where: { id: parseInt(notificationId) }
+        where: { id: parseInt(id) }  // Use 'id' here
       });
       
       // Get updated unread count

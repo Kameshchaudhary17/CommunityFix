@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, ThumbsUp, Calendar, Eye, SortDesc } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
-import Hearder from '../components/Header';
-import { useNavigate } from 'react-router-dom';
+import Header from '../components/Header';
+import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 
-// Status Filter component
+// Status Filter component remains the same
 const StatusFilter = ({ value, onChange }) => {
   return (
     <select 
@@ -28,6 +29,14 @@ const Home = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get search query from URL when component mounts or location changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const query = params.get('search') || '';
+    setSearchQuery(query);
+  }, [location.search]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -62,24 +71,34 @@ const Home = () => {
     }
   };
 
-  // Fetch reports from the server
-  const fetchReports = async () => {
+  // Updated fetch reports function to include search
+  const fetchReports = async (query = '') => {
     try {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:5555/api/report/getReport', {
+      // Add search query parameter if provided
+      const url = query 
+        ? `http://localhost:5555/api/report/getReport?searchQuery=${encodeURIComponent(query)}`
+        : 'http://localhost:5555/api/report/getReport';
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-
+  
+      // Get detailed error information from the server if possible
       if (!response.ok) {
-        throw new Error('Failed to fetch reports');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.message || 
+          `Server error (${response.status}): Failed to fetch reports`
+        );
       }
-
+  
       const data = await response.json();
       
       // Store the reports
@@ -102,11 +121,13 @@ const Home = () => {
           }
         } catch (err) {
           console.error(`Error fetching upvotes for report ${report.report_id}:`, err);
-          // Don't fail the entire process for one upvote fetch failure
           report.upvotes = report.upvotes || 0;
         }
       }));
+      
+      // Sort reports by creation date (newest first)
       fetchedReports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
       setReports(fetchedReports);
       setIsLoading(false);
     } catch (err) {
@@ -116,20 +137,30 @@ const Home = () => {
     }
   };
 
+  // Load reports when searchQuery changes
   useEffect(() => {
     // Load upvoted reports from localStorage
     const savedUpvotes = JSON.parse(localStorage.getItem('upvotedReports') || '[]');
     setUpvotedReports(savedUpvotes);
     
-    // Fetch reports with upvote counts
-    fetchReports();
-  }, []);
+    // Fetch reports with the current search query
+    fetchReports(searchQuery);
+  }, [searchQuery]);
+
+  // Handler for search from header
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    
+    // Update URL with search parameter
+    navigate(`/home${query ? `?search=${encodeURIComponent(query)}` : ''}`);
+    
+    // Fetch reports is handled by the useEffect that watches searchQuery
+  };
 
   const handleUpvote = async (reportId) => {
+    // Implement upvote functionality
     try {
       const token = localStorage.getItem('token');
-      
-      // Call your API to toggle the upvote (add or remove)
       const response = await fetch(`http://localhost:5555/api/upvote/${reportId}`, {
         method: 'POST',
         headers: {
@@ -137,39 +168,26 @@ const Home = () => {
           'Content-Type': 'application/json'
         }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to toggle upvote');
+
+      if (response.ok) {
+        // Update local state
+        const updatedUpvotes = [...upvotedReports];
+        if (!upvotedReports.includes(reportId)) {
+          updatedUpvotes.push(reportId);
+        } else {
+          const index = updatedUpvotes.indexOf(reportId);
+          updatedUpvotes.splice(index, 1);
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('upvotedReports', JSON.stringify(updatedUpvotes));
+        setUpvotedReports(updatedUpvotes);
+        
+        // Refresh reports to get updated upvote count
+        fetchReports(searchQuery);
       }
-      
-      const data = await response.json();
-      
-      // Check if the user has upvoted or removed the upvote
-      const isUpvoted = upvotedReports.includes(reportId);
-      let newUpvotedReports;
-      
-      if (isUpvoted) {
-        // If the report was already upvoted, remove it from upvotedReports
-        newUpvotedReports = upvotedReports.filter(id => id !== reportId);
-      } else {
-        // If the report was not upvoted, add it to upvotedReports
-        newUpvotedReports = [...upvotedReports, reportId];
-      }
-      
-      // Update localStorage and state with the new upvoted reports
-      setUpvotedReports(newUpvotedReports);
-      localStorage.setItem('upvotedReports', JSON.stringify(newUpvotedReports));
-      
-      // Update the reports list with the new upvote count from the server response
-      setReports(reports.map(report => 
-        report.report_id === reportId 
-          ? { ...report, upvotes: data.upvotes } 
-          : report
-      ));
-      
     } catch (err) {
-      console.error('Error toggling upvote:', err);
-      alert('Failed to process upvote. Please try again later.');
+      console.error('Error upvoting report:', err);
     }
   };
 
@@ -193,7 +211,7 @@ const Home = () => {
           <h2 className="text-xl font-semibold mb-2">Error Loading Reports</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
-            onClick={fetchReports}
+            onClick={() => fetchReports(searchQuery)}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
           >
             Try Again
@@ -203,14 +221,10 @@ const Home = () => {
     );
   }
 
-  // Filter reports based on status and search query
-  const filteredSuggestions = reports.filter(report => {
-    const matchesStatus = statusFilter === 'all' || 
-                          (report.status?.toLowerCase() === statusFilter.toLowerCase());
-    const matchesSearch = !searchQuery || 
-                          report.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          report.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+  // Filter reports based on status only (search is now handled by the API)
+  const filteredReports = reports.filter(report => {
+    return statusFilter === 'all' || 
+           (report.status?.toLowerCase() === statusFilter.toLowerCase());
   });
 
   return (
@@ -220,17 +234,21 @@ const Home = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <Hearder />
+        {/* Header with search prop */}
+        <Header onSearch={handleSearch} />
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-800">Recent Reports</h2>
+            <h2 className="text-2xl font-bold text-gray-800">
+              {searchQuery ? `Search Results for "${searchQuery}"` : "Recent Reports"}
+            </h2>
+            
             {/* Filter controls */}
             <div className="mb-6 flex justify-between items-center">
               <div className="text-sm text-gray-600">
-                {filteredSuggestions.length} report{filteredSuggestions.length !== 1 ? 's' : ''}
+                {filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''}
+                {searchQuery && <span> found</span>}
               </div>
               
               <div className="flex gap-2">
@@ -246,17 +264,29 @@ const Home = () => {
               </div>
             </div>
             
-            {filteredSuggestions.length === 0 ? (
+            {filteredReports.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-10 text-center">
                 <div className="text-5xl mb-4">📋</div>
-                <h3 className="text-xl font-medium text-gray-800 mb-2">No Reports Found</h3>
+                <h3 className="text-xl font-medium text-gray-800 mb-2">
+                  {searchQuery ? "No Matching Reports Found" : "No Reports Found"}
+                </h3>
                 <p className="text-gray-500 max-w-md mx-auto">
-                  There are no reports available at the moment. Be the first to submit a new report!
+                  {searchQuery 
+                    ? `There are no reports matching "${searchQuery}". Try a different search term or view all reports.`
+                    : "There are no reports available at the moment. Be the first to submit a new report!"}
                 </p>
+                {searchQuery && (
+                  <button 
+                    onClick={() => handleSearch('')}
+                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
+                  >
+                    View All Reports
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-6">
-                {filteredSuggestions.map((report) => (
+                {filteredReports.map((report) => (
                   <div 
                     key={report.report_id} 
                     className="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-200"

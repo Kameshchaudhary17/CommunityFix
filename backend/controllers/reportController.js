@@ -94,31 +94,80 @@ const createReport = async (req, res) => {
 
 const getAllReports = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const { searchQuery, municipality, wardNumber } = req.query;
     
-    console.log("User ID:", userId);
+    console.log("Search query received:", searchQuery);
     
-    // Fetch user details to get municipality and wardNumber
-    const user = await prisma.users.findUnique({
-      where: { user_id: userId },
-      select: {
-        municipality: true,
-        wardNumber: true
+    // Convert wardNumber to number if it exists
+    const ward = wardNumber ? parseInt(wardNumber) : undefined;
+    
+    // Build the where clause dynamically
+    const whereClause = {};
+    
+    if (municipality) whereClause.municipality = municipality;
+    if (ward) whereClause.wardNumber = ward;
+    
+    // Add search conditions only if searchQuery exists
+    if (searchQuery) {
+      try {
+        const searchQueryLower = searchQuery.toLowerCase();
+        
+        // Filter after fetching
+        const allReports = await prisma.reports.findMany({
+          where: {
+            municipality: municipality || undefined,
+            wardNumber: ward || undefined
+          },
+          include: {
+            user: {
+              select: {
+                user_name: true,
+                user_email: true,
+                contact: true,
+                profilePicture: true,
+                createdAt: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: "desc"
+          }
+        });
+        
+        console.log(`Found ${allReports.length} reports before filtering`);
+        
+        // Filter in JavaScript for case-insensitive search
+        const filteredReports = allReports.filter(report => {
+          // Add null/undefined checks for each property
+          const title = report.title?.toLowerCase() || '';
+          const description = report.description?.toLowerCase() || '';
+          const category = report.category?.toLowerCase() || '';
+          const location = report.location?.toLowerCase() || '';
+          
+          return title.includes(searchQueryLower) || 
+                 description.includes(searchQueryLower) || 
+                 category.includes(searchQueryLower) || 
+                 location.includes(searchQueryLower);
+        });
+        
+        console.log(`Filtered to ${filteredReports.length} reports after search`);
+        
+        res.status(200).json({ success: true, reports: filteredReports });
+        return;
+      } catch (searchError) {
+        console.error("Error during search filtering:", searchError);
+        res.status(500).json({
+          success: false,
+          message: "Error during search filtering",
+          error: searchError.message
+        });
+        return;
       }
-    });
-    
-    console.log("User Details:", user);
-    
-    if (!user || !user.municipality || user.wardNumber === null) {
-      return res.status(403).json({ message: 'Access denied: Municipality and Ward Number are required' });
     }
     
-    // Fetch reports based on the user's municipality and wardNumber
+    // If no search query, just fetch all reports with the filters
     const reports = await prisma.reports.findMany({
-      where: {
-        municipality: user.municipality,
-        wardNumber: user.wardNumber
-      },
+      where: whereClause,
       include: {
         user: {
           select: {
@@ -129,35 +178,20 @@ const getAllReports = async (req, res) => {
             createdAt: true
           }
         }
+      },
+      orderBy: {
+        createdAt: "desc"
       }
     });
     
-    // Get upvote information for each report
-    const reportsWithUpvotes = await Promise.all(reports.map(async (report) => {
-      // Count upvotes for this report
-      const upvoteCount = await prisma.upvote.count({
-        where: { reportId: report.report_id } // Use report_id instead of id
-      });
-      
-      // Check if current user has upvoted this report
-      const hasUserUpvoted = await prisma.upvote.findFirst({
-        where: { 
-          userId: userId,
-          reportId: report.report_id // Use report_id instead of id
-        }
-      });
-      
-      return {
-        ...report,
-        upvotes: upvoteCount,
-        hasUserUpvoted: !!hasUserUpvoted
-      };
-    }));
-    
-    return res.status(200).json({ reports: reportsWithUpvotes });
+    res.status(200).json({ success: true, reports });
   } catch (error) {
-    console.error('Fetch reports error:', error);
-    return res.status(500).json({ error: "Internal server error." });
+    console.error("Error fetching reports:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch reports",
+      error: error.message
+    });
   }
 };
 
@@ -253,28 +287,28 @@ const updateReport = async (req, res) => {
 
 // Delete report
 const deleteReport = async (req, res) => {
-  const { id } = req.query;
-
+  const { id } = req.params; // Changed from req.query to req.params
+  
   try {
     // Verify report exists and belongs to the user
     const existingReport = await prisma.reports.findUnique({
       where: { report_id: Number(id) }
     });
-
+    
     if (!existingReport) {
       return res.status(404).json({ error: "Report not found." });
     }
-
+    
     // Ensure user can only delete their own reports
     if (existingReport.user_id !== req.user.id) {
       return res.status(403).json({ error: "Not authorized to delete this report." });
     }
-
+    
     // Delete report
     await prisma.reports.delete({
       where: { report_id: Number(id) }
     });
-
+    
     return res.status(200).json({
       message: "Report deleted successfully."
     });

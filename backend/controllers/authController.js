@@ -304,23 +304,47 @@ const signupUser = async (req, res) => {
 };
 
 
-const sendEmail = async (to, subject, text) => {
+const sendEmail = async (to, subject, text, htmlContent) => {
+  // Create reusable transporter with proper configuration
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
+    },
+    dkim: process.env.DKIM_OPTIONS ? JSON.parse(process.env.DKIM_OPTIONS) : undefined,
+    secure: true,
+    tls: {
+      rejectUnauthorized: true
     }
   });
 
   const mailOptions = {
-      from: `"Community Fix" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text
+    from: {
+      name: 'Community Fix',
+      address: process.env.EMAIL_USER
+    },
+    to,
+    subject,
+ 
+    text,
+    html: htmlContent || `<div style="font-family: Arial, sans-serif; line-height: 1.5;">${text.replace(/\n/g, '<br>')}</div>`,
+    headers: {
+      'X-Priority': '3', 
+      'X-MSMail-Priority': 'Normal',
+      'X-Mailer': 'Community Fix Mailer',
+      'List-Unsubscribe': `<mailto:unsubscribe@${process.env.EMAIL_DOMAIN || 'yourdomain.com'}?subject=unsubscribe>`
+    }
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw error;
+  }
 };
 
 const sendResetOTP = async (req, res) => {
@@ -547,41 +571,122 @@ const updateUser = async (req, res) => {
 };
 
 // Delete user
+
 const deleteUser = async (req, res) => {
-    const { user_id } = req.params;
-
-    try {
-        // Verify user exists
-        const user = await prisma.users.findUnique({
-            where: { user_id: parseInt(user_id) }
-        });
-
-        if (!user) {
-            return res.status(404).json({ error: "User not found." });
-        }
-
-        // Delete user's profile picture and citizenship photo if they exist
-        if (user.profilePicture && fs.existsSync(user.profilePicture)) {
-            fs.unlinkSync(user.profilePicture);
-        }
-        if (user.citizenshipPhoto && fs.existsSync(user.citizenshipPhoto)) {
-            fs.unlinkSync(user.citizenshipPhoto);
-        }
-
-        // Delete user
-        await prisma.users.delete({
-            where: { user_id: parseInt(user_id) }
-        });
-
-        return res.status(200).json({
-            message: "User deleted successfully."
-        });
-    } catch (error) {
-        console.error('Delete user error:', error);
-        return res.status(500).json({ error: "Internal server error." });
+  const { user_id } = req.params;
+  
+  try {
+    // Verify user exists
+    const user = await prisma.users.findUnique({
+      where: { user_id: parseInt(user_id) }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
     }
+    
+    // Delete user's profile picture and citizenship photo if they exist
+    if (user.profilePicture && fs.existsSync(user.profilePicture)) {
+      try {
+        fs.unlinkSync(user.profilePicture);
+      } catch (fileError) {
+        console.error('Error deleting profile picture:', fileError);
+        // Continue with deletion even if file removal fails
+      }
+    }
+    
+    if (user.citizenshipPhoto && fs.existsSync(user.citizenshipPhoto)) {
+      try {
+        fs.unlinkSync(user.citizenshipPhoto);
+      } catch (fileError) {
+        console.error('Error deleting citizenship photo:', fileError);
+        // Continue with deletion even if file removal fails
+      }
+    }
+    
+    // Try to send notification but don't let it block the user deletion
+    try {
+      await sendAccountDeletionNotification(user.email);
+    } catch (emailError) {
+      console.error('Failed to send deletion notification:', emailError);
+      // Continue with user deletion even if email fails
+    }
+    
+    // Delete user
+    await prisma.users.delete({
+      where: { user_id: parseInt(user_id) }
+    });
+    
+    return res.status(200).json({
+      message: "User deleted successfully."
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
 };
 
+const sendAccountDeletionNotification = async (userEmail) => {
+  if (!userEmail) {
+    console.error('Cannot send email: No email address provided');
+    throw new Error('Email address is required');
+  }
+
+  // Validate email environment variables
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.error('Email configuration missing: Check EMAIL_USER and EMAIL_PASSWORD environment variables');
+    throw new Error('Email configuration missing');
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+  
+  const subject = 'Your Account Has Been Deleted';
+  const textContent = "Your account has been deleted from our system. If you did not request this action, please contact our support team immediately.";
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+      <h2 style="color: #d32f2f;">Account Deleted</h2>
+      <p>Your account has been deleted from our system.</p>
+      <p style="font-weight: bold;">If you did not request this action, please contact our support team immediately.</p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+      <p style="color: #777; font-size: 12px;">This is an automated email. Please do not reply to this message.</p>
+    </div>
+  `;
+  
+  console.log(`Attempting to send account deletion notification to ${userEmail}`);
+  
+  try {
+    const info = await transporter.sendMail({
+      from: {
+        name: 'Municipality Support Team',
+        address: process.env.EMAIL_USER
+      },
+      to: userEmail,
+      subject: subject,
+      text: textContent,
+      html: htmlContent,
+      headers: {
+        'X-Priority': '1',
+        'Importance': 'high',
+        'X-MSmail-Priority': 'High'
+      }
+    });
+    
+    console.log(`Account deletion notification sent to ${userEmail}, messageId: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error(`Failed to send email to ${userEmail}:`, error);
+    throw error; // Re-throw the error so the calling function can handle it
+  }
+};
 
 // Get users by municipality and ward number
 const getUsersByLocation = async (req, res) => {
@@ -794,70 +899,150 @@ const getMunicipalityUsers = async (req, res) => {
   }
 };
 
-const sendVerificationNotification = async (userEmail, status) => {
+const sendVerificationNotification = async (userEmail, status, userName = '') => {
   try {
+    // Use more robust configuration for email delivery
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
+      },
+      // Security options
+      secure: true,
+      tls: {
+        // Do not disable certificate validation in production
+        rejectUnauthorized: true
       }
     });
-
+      
     let subject, htmlContent, textContent;
+      
+    // Personalize email with user's name if available
+    const greeting = userName ? `Hello ${userName},` : 'Hello,';
+      
     switch(status) {
       case 'ACCEPT':
-        subject = 'Your Account Has Been Approved';
-        textContent = "Your account has been successfully verified and approved. You now have full access.";
-        htmlContent = `
-          <h1>Account Approved</h1>
-          <p>Your account has been successfully verified and approved.</p>
-          <p>Thank you for your patience.</p>
-        `;
+        subject = 'Your Account Has Been Approved - Municipality Services';
+        textContent = `${greeting} Your account has been successfully verified and approved. You now have full access to all services.`;
+        htmlContent = getEmailTemplate('ACCEPT', userName);
         break;
       case 'REJECT':
-        subject = 'Your Account Verification Was Unsuccessful';
-        textContent = "Your account verification was not approved. Please contact support for details.";
-        htmlContent = `
-          <h1>Verification Unsuccessful</h1>
-          <p>Your account verification was not approved.</p>
-          <p>Please contact our support team for guidance.</p>
-        `;
+        subject = 'Your Account Verification Was Unsuccessful - Municipality Services';
+        textContent = `${greeting} Your account verification was not approved. Please contact support for more details.`;
+        htmlContent = getEmailTemplate('REJECT', userName);
         break;
       case 'PENDING':
-        subject = 'Your Account Verification is Pending';
-        textContent = "Your verification status is pending. Our team will review your application soon.";
-        htmlContent = `
-          <h1>Verification Pending</h1>
-          <p>Your account verification status has been updated to pending.</p>
-        `;
+        subject = 'Your Account Verification is Pending - Municipality Services';
+        textContent = `${greeting} Your verification status is pending. Our team will review your application soon.`;
+        htmlContent = getEmailTemplate('PENDING', userName);
         break;
       default:
-        subject = 'Important: Account Status Update';
-        textContent = "There has been an update to your account status. Please check your account for details.";
-        htmlContent = `
-          <h1>Account Update</h1>
-          <p>Please log in to your account for more details.</p>
-        `;
+        subject = 'Important: Account Status Update - Municipality Services';
+        textContent = `${greeting} There has been an update to your account status. Please check your account for details.`;
+        htmlContent = getEmailTemplate('DEFAULT', userName);
     }
-
+      
     console.log(`Sending email to ${userEmail} using ${process.env.EMAIL_USER}`);
-
-    const info = await transporter.sendMail({
-      from: `"Municipality Verification Team" <${process.env.EMAIL_USER}>`,
+      
+    // Use proper email structure with appropriate headers
+    const mailOptions = {
+      from: {
+        name: 'Municipality Services',
+        address: process.env.EMAIL_USER
+      },
       to: userEmail,
       subject: subject,
-      text: textContent, // Plain text version
-      html: htmlContent  // HTML version
-    });
-
-    console.log(`Email sent to ${userEmail}. Status: ${status}`);
+      text: textContent,
+      html: htmlContent,
+      // Avoid using "urgent" or "priority" headers as they can trigger spam filters
+      headers: {
+        'List-Unsubscribe': `<mailto:${process.env.EMAIL_USER}?subject=unsubscribe>`,
+        // Add DKIM and SPF records to your domain for better deliverability
+      }
+    };
+      
+    const info = await transporter.sendMail(mailOptions);
+      
+    console.log(`Email sent to ${userEmail}. Status: ${status}, MessageId: ${info.messageId}`);
     return info;
   } catch (error) {
     console.error('Error sending verification email:', error);
     return null;
   }
 };
+
+function getEmailTemplate(status, userName = '') {
+  const greeting = userName ? `Hello ${userName},` : 'Hello,';
+  
+  // Updated base style to be more spam-filter friendly
+  const baseStyle = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+  `;
+  
+  const footer = `
+      <p style="margin-top: 30px; font-size: 14px; color: #666; border-top: 1px solid #eee; padding-top: 15px;">
+        If you did not create an account with us, please disregard this email.
+      </p>
+      <p style="font-size: 12px; color: #555;">
+        © ${new Date().getFullYear()} Municipality Services
+      </p>
+      <p style="font-size: 12px; color: #777;">
+        You received this email because you registered for an account with Municipality Services.
+        <br>
+        To unsubscribe from these notifications, please <a href="mailto:${process.env.EMAIL_USER}?subject=unsubscribe" style="color: #1976d2;">click here</a>.
+      </p>
+    </div>
+  `;
+  
+  switch(status) {
+    case 'ACCEPT':
+      return `${baseStyle}
+        <h1 style="color: #2e7d32;">Account Approved</h1>
+        <p>${greeting}</p>
+        <p>Your account has been successfully verified and approved.</p>
+        <p>You now have full access to all services on our platform.</p>
+        <p>Thank you for your patience during the verification process.</p>
+        <div style="background-color: #e8f5e9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #2e7d32;">You can now log in to access all features.</p>
+        </div>
+        ${footer}`;
+          
+    case 'REJECT':
+      return `${baseStyle}
+        <h1 style="color: #c62828;">Verification Unsuccessful</h1>
+        <p>${greeting}</p>
+        <p>We regret to inform you that your account verification was not approved.</p>
+        <p>This might be due to incomplete or incorrect documentation provided during the verification process.</p>
+        <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #c62828;">Please contact our support team for further guidance and to understand the next steps.</p>
+        </div>
+        ${footer}`;
+          
+    case 'PENDING':
+      return `${baseStyle}
+        <h1 style="color: #f57c00;">Verification Pending</h1>
+        <p>${greeting}</p>
+        <p>Thank you for registering with Municipality Services.</p>
+        <p>Your account is currently being verified by our team. This process typically takes 1-2 business days.</p>
+        <p>You will receive another email once your account has been reviewed.</p>
+        <div style="background-color: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #f57c00;">In the meantime, you can log in to your account with limited functionality.</p>
+        </div>
+        ${footer}`;
+          
+    default:
+      return `${baseStyle}
+        <h1 style="color: #1976d2;">Account Update</h1>
+        <p>${greeting}</p>
+        <p>There has been an update to your account status.</p>
+        <p>Please log in to your account for more details.</p>
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #1976d2;">If you have any questions, please contact our support team.</p>
+        </div>
+        ${footer}`;
+  }
+}
 
 // Your existing controller
 const updateVerificationStatus = async (req, res) => {

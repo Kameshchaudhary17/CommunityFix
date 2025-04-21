@@ -7,6 +7,7 @@ import './App.css'
 import LandingPage from './pages/Landing'
 import Sidebar from './components/Sidebar'
 import Notification from './pages/Notification'
+import NotificationUser from './pages/NotificationUser'
 import Header from './components/Header'
 import MunicipalityDashboard from './pages/MunicipalityDashboard'
 import ReportPage from './pages/ReportPage'
@@ -20,6 +21,7 @@ import ReportManagement from './pages/ReportManagement'
 import MySuggestion from './pages/MySuggestion'
 import Profile from './pages/Profile'
 import SuggestionManagement from './pages/SuggestionManagement'
+import MunicipalityProfile from './pages/MunicipalityProfile'
 
 
 function App() {
@@ -40,7 +42,9 @@ function App() {
       <Route path = '/municipality' element = {<MunicipalityDashboard />}/>
       <Route path = '/admin' element = {<AdminDashboard />}/>
       <Route path = '/profile' element = {<Profile />}/>
+      <Route path = '/municipalityprofile' element = {<MunicipalityProfile />}/>
       <Route path = '/notification' element = {<Notification />}/>
+      <Route path = '/notificationuser' element = {<NotificationUser />}/>
       <Route path = '/register' element = {< AddMunicipality />}/>
       <Route path = '/suggestion' element = {< Suggestion />}/>
       <Route path = '/mysuggestion' element = {< MySuggestion />}/>

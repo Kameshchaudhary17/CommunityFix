@@ -171,6 +171,7 @@ enum NotificationType {
   NEW_UPVOTE
   ACCOUNT_VERIFIED
   NEW_REPORT
+  NEW_SUGGESTION
 }
 
 

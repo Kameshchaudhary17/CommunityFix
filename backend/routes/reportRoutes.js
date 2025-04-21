@@ -32,6 +32,7 @@ router.put('/:reportId/status', authMiddleware.authenticateUser, reportControlle
 router.get('/getReport', authMiddleware.authenticateUser, reportController.getAllReports)
 router.get('/getReportById/:reportId', authMiddleware.authenticateUser, reportController.getReportById)
 router.get('/getsinglereport', authMiddleware.authenticateUser, reportController.getSingleUserReports)
+router.delete('/:id', authMiddleware.authenticateUser, reportController.deleteReport)
 
 
 module.exports = router;
