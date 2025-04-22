@@ -127,7 +127,9 @@ const getAllReports = async (req, res) => {
                 profilePicture: true,
                 createdAt: true
               }
-            }
+            },
+            // Include upvotes to count them
+            upvotes: true
           },
           orderBy: {
             createdAt: "desc"
@@ -144,15 +146,23 @@ const getAllReports = async (req, res) => {
           const category = report.category?.toLowerCase() || '';
           const location = report.location?.toLowerCase() || '';
           
-          return title.includes(searchQueryLower) || 
-                 description.includes(searchQueryLower) || 
-                 category.includes(searchQueryLower) || 
+          return title.includes(searchQueryLower) ||
+                 description.includes(searchQueryLower) ||
+                 category.includes(searchQueryLower) ||
                  location.includes(searchQueryLower);
         });
         
-        console.log(`Filtered to ${filteredReports.length} reports after search`);
+        // Add upvote count to each report
+        const reportsWithUpvoteCount = filteredReports.map(report => ({
+          ...report,
+          upvoteCount: report.upvotes.length,
+          // Remove the upvotes array to avoid sending unnecessary data
+          upvotes: undefined
+        }));
         
-        res.status(200).json({ success: true, reports: filteredReports });
+        console.log(`Filtered to ${reportsWithUpvoteCount.length} reports after search`);
+        
+        res.status(200).json({ success: true, reports: reportsWithUpvoteCount });
         return;
       } catch (searchError) {
         console.error("Error during search filtering:", searchError);
@@ -177,14 +187,24 @@ const getAllReports = async (req, res) => {
             profilePicture: true,
             createdAt: true
           }
-        }
+        },
+        // Include upvotes to count them
+        upvotes: true
       },
       orderBy: {
         createdAt: "desc"
       }
     });
     
-    res.status(200).json({ success: true, reports });
+    // Add upvote count to each report
+    const reportsWithUpvoteCount = reports.map(report => ({
+      ...report,
+      upvoteCount: report.upvotes.length,
+      // Remove the upvotes array to avoid sending unnecessary data
+      upvotes: undefined
+    }));
+    
+    res.status(200).json({ success: true, reports: reportsWithUpvoteCount });
   } catch (error) {
     console.error("Error fetching reports:", error);
     res.status(500).json({
@@ -320,11 +340,11 @@ const deleteReport = async (req, res) => {
 
 // Get reports by current user
 const getUserReports = async (req, res) => {
-  const { 
-    page = 1, 
-    limit = 10, 
-    sortBy = 'createdAt', 
-    sortOrder = 'desc' 
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
   } = req.query;
 
   try {
@@ -333,23 +353,42 @@ const getUserReports = async (req, res) => {
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Fetch user's reports
+    // Fetch user's reports with upvotes included
     const reports = await prisma.reports.findMany({
       where: { user_id: req.user.id },
       skip,
       take: limitNum,
       orderBy: {
         [sortBy]: sortOrder
+      },
+      include: {
+        upvotes: true,
+        user: {
+          select: {
+            user_name: true,
+            profilePicture: true
+          }
+        }
       }
     });
 
+    // Transform to include upvote count and check if current user upvoted
+    const transformedReports = reports.map(report => {
+      const { upvotes, ...reportData } = report;
+      return {
+        ...reportData,
+        upvoteCount: upvotes.length,
+        hasUserUpvoted: upvotes.some(upvote => upvote.userId === req.user.id)
+      };
+    });
+
     // Count total user reports
-    const totalReports = await prisma.reports.count({ 
-      where: { user_id: req.user.id } 
+    const totalReports = await prisma.reports.count({
+      where: { user_id: req.user.id }
     });
 
     return res.status(200).json({
-      reports,
+      reports: transformedReports,
       pagination: {
         currentPage: pageNum,
         totalPages: Math.ceil(totalReports / limitNum),

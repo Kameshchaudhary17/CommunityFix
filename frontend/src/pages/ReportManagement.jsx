@@ -37,7 +37,7 @@ const ReportManagement = () => {
   const [reports, setReports] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [sortConfig, setSortConfig] = useState({ key: 'upvotes', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'upvotesCount', direction: 'desc' }); // Default to highest upvotes first
   const [isReportDetailOpen, setIsReportDetailOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +77,6 @@ const ReportManagement = () => {
 
       console.log('Report data structure:', response.data);
 
-
       const mappedReports = response.data.reports.map(report => {
         let photos = [];
         if (report.photo) {
@@ -91,14 +90,15 @@ const ReportManagement = () => {
         }
 
         const upvotesCount = Array.isArray(report.upvotes) ? report.upvotes.length :
-          (typeof report.upvotes === 'number' ? report.upvotes : 0);
+          (typeof report.upvotes === 'number' ? report.upvotes : 
+          (report.upvoteCount || 0)); // Consider upvoteCount from server
 
         return {
           ...report,
           status: statusMapping[report.status] || report.status,
           reportDate: report.createdAt, // Map createdAt to reportDate
-          upvotesCount,
-          photos: photos // Add upvotesCount property
+          upvotesCount, // Make sure we have a proper upvotes count
+          photos: photos
         };
       });
 
@@ -201,7 +201,6 @@ const ReportManagement = () => {
       }
     }
   };
-
 
   // Generic error handler for API requests
   const handleApiError = (err, defaultMessage) => {
@@ -429,19 +428,13 @@ const ReportManagement = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        {/* ID Column */}
+                      
                         <th
                           scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('id')}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
                           <div className="flex items-center space-x-1">
-                            <span>Report ID</span>
-                            {sortConfig.key === 'id' && (
-                              sortConfig.direction === 'asc' ?
-                                <ChevronUp className="h-4 w-4" /> :
-                                <ChevronDown className="h-4 w-4" />
-                            )}
+                            <span>SN</span>
                           </div>
                         </th>
 
@@ -502,11 +495,11 @@ const ReportManagement = () => {
                         <th
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('upvotes')}
+                          onClick={() => handleSort('upvotesCount')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Upvotes</span>
-                            {sortConfig.key === 'upvotes' && (
+                            {sortConfig.key === 'upvotesCount' && (
                               sortConfig.direction === 'asc' ?
                                 <ChevronUp className="h-4 w-4" /> :
                                 <ChevronDown className="h-4 w-4" />
@@ -521,11 +514,11 @@ const ReportManagement = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {sortedReports.map((report) => (
+                      {sortedReports.map((report, index) => (
                         <tr key={report.id || report.report_id} className="hover:bg-gray-50">
-                          {/* ID */}
+                          {/* Serial Number (index + 1) */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {report.report_id}
+                            {index + 1}
                           </td>
 
                           {/* Title */}
@@ -722,80 +715,115 @@ const ReportManagement = () => {
                     </div>
                   </div>
                 )}
-
-                {selectedReport.latitude && selectedReport.longitude && (
+                  {selectedReport.latitude && selectedReport.longitude && (
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Location</h4>
-                    <div className="bg-gray-50 p-4 rounded-lg mb-3">
-                      <div className="flex items-start mb-2">
-                        <MapPin className="h-5 w-5 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-gray-600">
-                          {selectedReport.municipality ? selectedReport.municipality + " " : ""}
-                          {selectedReport.wardNumber ? selectedReport.wardNumber : ""}
-                        </p>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Coordinates: {selectedReport.latitude}, {selectedReport.longitude}
-                      </div>
-                    </div>
-
-                    {/* Leaflet Map */}
                     <div className="h-64 rounded-lg overflow-hidden border border-gray-200">
-                      <MapContainer
-                        center={[selectedReport.latitude, selectedReport.longitude]}
-                        zoom={14}
+                      <MapContainer 
+                        center={[selectedReport.latitude, selectedReport.longitude]} 
+                        zoom={15} 
                         style={{ height: '100%', width: '100%' }}
-                        scrollWheelZoom={false}
                       >
                         <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         />
                         <Marker position={[selectedReport.latitude, selectedReport.longitude]}>
                           <Popup>
-                            <div className="text-sm">
-                              <p className="font-medium">{selectedReport.title}</p>
-                              <p>
-                                {selectedReport.municipality ? selectedReport.municipality + " " : ""}
-                                {selectedReport.wardNumber ? selectedReport.wardNumber : ""}
-                              </p>
-                            </div>
+                            {selectedReport.title}<br />
+                            {selectedReport.address || 'No address provided'}
                           </Popup>
                         </Marker>
                       </MapContainer>
                     </div>
+                    <div className="mt-2 flex items-start">
+                      <MapPin className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5 mr-2" />
+                      <p className="text-sm text-gray-600">
+                        {selectedReport.address || 
+                         `Latitude: ${selectedReport.latitude}, Longitude: ${selectedReport.longitude}`}
+                      </p>
+                    </div>
                   </div>
                 )}
 
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Photos</h4>
-                  {selectedReport.photos && selectedReport.photos.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Photo Gallery */}
+                {selectedReport.photos && selectedReport.photos.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Photos</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {selectedReport.photos.map((photo, index) => (
-                        <div key={index} className="rounded-lg overflow-hidden border border-gray-200">
+                        <div key={index} className="relative h-40 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
                           <img
-                            src={`http://localhost:5555/${photo}`}
-                            alt={`Report ${index + 1}`}
-                            className="w-full h-auto object-cover"
+                            src={photo}
+                            alt={`Report image ${index + 1}`}
+                            className="w-full h-full object-cover"
                             onError={(e) => {
-                              console.error(`Failed to load image: ${photo}`);
-                              e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Found';
+                              e.target.onerror = null;
+                              e.target.src = '/placeholder-image.jpg'; // Fallback image
+                              e.target.classList.add('opacity-50');
                             }}
                           />
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No photos available</p>
-                  )}
+                  </div>
+                )}
+
+                {/* Comments, if available */}
+                {selectedReport.comments && selectedReport.comments.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Comments</h4>
+                    <div className="space-y-4">
+                      {selectedReport.comments.map((comment, index) => (
+                        <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                          <div className="flex justify-between">
+                            <span className="text-sm font-medium text-gray-900">
+                              {comment.user?.user_name || 'Anonymous'}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'N/A'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">{comment.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional metadata */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Additional Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                    <div>
+                      <span className="text-gray-500">Report ID:</span>
+                      <span className="ml-2 text-gray-900">
+                        {selectedReport.report_id || selectedReport.id || 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Category:</span>
+                      <span className="ml-2 text-gray-900">{selectedReport.category || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Priority:</span>
+                      <span className="ml-2 text-gray-900">{selectedReport.priority || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Last Updated:</span>
+                      <span className="ml-2 text-gray-900">
+                        {selectedReport.updatedAt ? new Date(selectedReport.updatedAt).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
               <button
                 onClick={() => setIsReportDetailOpen(false)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
               >
                 Close
               </button>

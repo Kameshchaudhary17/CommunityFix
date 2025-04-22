@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Eye, EyeOff, Trash2, AlertTriangle } from 'lucide-react';
+import { X, Plus, Eye, EyeOff, Trash2, AlertTriangle, Search, Filter } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -11,8 +11,15 @@ const AddMunicipality = () => {
   const [municipalityToDelete, setMunicipalityToDelete] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [municipalities, setMunicipalities] = useState([]);
+  const [filteredMunicipalities, setFilteredMunicipalities] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    municipality: '',
+    wardNumber: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
   const [formData, setFormData] = useState({
     user_name: '',
     municipality: '',
@@ -39,6 +46,63 @@ const AddMunicipality = () => {
       [name]: value
     }));
   };
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [name]: value
+    }));
+  };
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const applyFilters = () => {
+    let results = [...municipalities];
+    
+    // Apply search term across all fields
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      results = results.filter(item => 
+        item.user_name.toLowerCase().includes(term) ||
+        item.municipality.toLowerCase().includes(term) ||
+        item.wardNumber.toString().includes(term) ||
+        item.user_email.toLowerCase().includes(term)
+      );
+    }
+    
+    // Apply specific filters
+    if (filters.municipality) {
+      results = results.filter(item => 
+        item.municipality.toLowerCase().includes(filters.municipality.toLowerCase())
+      );
+    }
+    
+    if (filters.wardNumber) {
+      results = results.filter(item => 
+        item.wardNumber.toString() === filters.wardNumber
+      );
+    }
+    
+    setFilteredMunicipalities(results);
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      municipality: '',
+      wardNumber: ''
+    });
+    setSearchTerm('');
+    setFilteredMunicipalities(municipalities);
+    setShowFilters(false);
+  };
+
+  // Apply filters whenever search term or filters change
+  useEffect(() => {
+    applyFilters();
+  }, [searchTerm, filters, municipalities]);
 
   const validateForm = () => {
     const errors = [];
@@ -90,6 +154,7 @@ const AddMunicipality = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setMunicipalities(response.data.data);
+      setFilteredMunicipalities(response.data.data);
     } catch (error) {
       console.error('Error fetching municipalities:', error);
       toast.error('Failed to fetch municipalities');
@@ -196,6 +261,12 @@ const AddMunicipality = () => {
     fetchMunicipalities();
   }, []);
 
+  // Get unique municipalities for filter dropdown
+  const uniqueMunicipalities = [...new Set(municipalities.map(item => item.municipality))].sort();
+  
+  // Get unique ward numbers for filter dropdown
+  const uniqueWards = [...new Set(municipalities.map(item => item.wardNumber))].sort((a, b) => a - b);
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Toaster for notifications */}
@@ -216,6 +287,93 @@ const AddMunicipality = () => {
           </button>
         </div>
 
+        {/* Search and Filter Section */}
+        <div className="bg-white p-4 rounded-lg shadow mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search Bar */}
+            <div className="relative flex-grow">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search name, municipality, email..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            {/* Filter Toggle Button */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700"
+            >
+              <Filter className="h-5 w-5" />
+              Filters
+              {(filters.municipality || filters.wardNumber) && (
+                <span className="inline-flex items-center justify-center bg-blue-500 text-white text-xs rounded-full h-5 w-5">
+                  {(filters.municipality ? 1 : 0) + (filters.wardNumber ? 1 : 0)}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Advanced Filters (conditionally shown) */}
+          {showFilters && (
+            <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Municipality filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Municipality</label>
+                  <select
+                    name="municipality"
+                    value={filters.municipality}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Municipalities</option>
+                    {uniqueMunicipalities.map((municipality, index) => (
+                      <option key={index} value={municipality}>{municipality}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Ward Number filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ward Number</label>
+                  <select
+                    name="wardNumber"
+                    value={filters.wardNumber}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Wards</option>
+                    {uniqueWards.map((ward, index) => (
+                      <option key={index} value={ward}>{ward}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={resetFilters}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Results Summary */}
+        <div className="mb-4 text-sm text-gray-500">
+          Showing {filteredMunicipalities.length} of {municipalities.length} municipalities
+          {(searchTerm || filters.municipality || filters.wardNumber) && " (filtered)"}
+        </div>
+
         {/* Municipalities Table */}
         <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="w-full">
@@ -229,7 +387,7 @@ const AddMunicipality = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {municipalities?.map((municipality) => (
+              {filteredMunicipalities?.map((municipality) => (
                 <tr key={municipality.user_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm text-gray-500">{municipality.user_name}</td>
                   <td className="px-6 py-4">{municipality.municipality}</td>
@@ -246,10 +404,10 @@ const AddMunicipality = () => {
                   </td>
                 </tr>
               ))}
-              {municipalities.length === 0 && (
+              {filteredMunicipalities.length === 0 && (
                 <tr>
                   <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                    No municipalities found
+                    {municipalities.length === 0 ? 'No municipalities found' : 'No results match your search criteria'}
                   </td>
                 </tr>
               )}

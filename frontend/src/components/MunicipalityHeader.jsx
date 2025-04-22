@@ -253,9 +253,9 @@ const Header = () => {
   // Get notification link based on type
   const getNotificationLink = (notification) => {
     if (notification.reportId) {
-      return `/myreport/${notification.reportId}`;
+      return `/reportmanagement`;
     } else if (notification.suggestionId) {
-      return `/mysuggestion/${notification.suggestionId}`;
+      return `/suggestionmanagement`;
     } else {
       return '#';
     }
