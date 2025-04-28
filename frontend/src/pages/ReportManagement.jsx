@@ -43,6 +43,18 @@ const ReportManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const getPhotoUrl = (photoPath) => {
+    if (!photoPath) return null;
+
+    // If the path is already a full URL, return it as is
+    if (photoPath.startsWith('http')) {
+      return photoPath;
+    }
+
+    // Otherwise, construct the full URL
+    return `http://localhost:5555/${photoPath.replace(/^\.\//, '')}`;
+  };
+
   const token = localStorage.getItem('token');
   const navigate = useNavigate();
   if (!token) {
@@ -78,27 +90,35 @@ const ReportManagement = () => {
       console.log('Report data structure:', response.data);
 
       const mappedReports = response.data.reports.map(report => {
-        let photos = [];
+        // Process photos
+        let photoUrls = [];
         if (report.photo) {
           try {
-            // Check if photo is a JSON string and parse it
-            photos = typeof report.photo === 'string' ? JSON.parse(report.photo) : report.photo;
+            // Parse the photo JSON string to array if needed
+            const parsedPhotos = typeof report.photo === 'string' ?
+              JSON.parse(report.photo) : report.photo;
+
+            // Convert to array of full URLs
+            photoUrls = Array.isArray(parsedPhotos) ?
+              parsedPhotos.map(photo => getPhotoUrl(photo)) :
+              [getPhotoUrl(parsedPhotos)];
           } catch (err) {
             console.error('Error parsing photo JSON:', err);
-            photos = [report.photo]; // Fallback to treating it as a single photo URL
+            // Fallback for any parsing errors
+            photoUrls = [getPhotoUrl(report.photo)];
           }
         }
 
         const upvotesCount = Array.isArray(report.upvotes) ? report.upvotes.length :
-          (typeof report.upvotes === 'number' ? report.upvotes : 
-          (report.upvoteCount || 0)); // Consider upvoteCount from server
+          (typeof report.upvotes === 'number' ? report.upvotes :
+            (report.upvoteCount || 0));
 
         return {
           ...report,
           status: statusMapping[report.status] || report.status,
-          reportDate: report.createdAt, // Map createdAt to reportDate
-          upvotesCount, // Make sure we have a proper upvotes count
-          photos: photos
+          reportDate: report.createdAt,
+          upvotesCount,
+          photos: photoUrls
         };
       });
 
@@ -428,7 +448,7 @@ const ReportManagement = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                      
+
                         <th
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -715,13 +735,13 @@ const ReportManagement = () => {
                     </div>
                   </div>
                 )}
-                  {selectedReport.latitude && selectedReport.longitude && (
+                {selectedReport.latitude && selectedReport.longitude && (
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Location</h4>
                     <div className="h-64 rounded-lg overflow-hidden border border-gray-200">
-                      <MapContainer 
-                        center={[selectedReport.latitude, selectedReport.longitude]} 
-                        zoom={15} 
+                      <MapContainer
+                        center={[selectedReport.latitude, selectedReport.longitude]}
+                        zoom={15}
                         style={{ height: '100%', width: '100%' }}
                       >
                         <TileLayer
@@ -739,8 +759,8 @@ const ReportManagement = () => {
                     <div className="mt-2 flex items-start">
                       <MapPin className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5 mr-2" />
                       <p className="text-sm text-gray-600">
-                        {selectedReport.address || 
-                         `Latitude: ${selectedReport.latitude}, Longitude: ${selectedReport.longitude}`}
+                        {selectedReport.address ||
+                          `Latitude: ${selectedReport.latitude}, Longitude: ${selectedReport.longitude}`}
                       </p>
                     </div>
                   </div>
@@ -751,16 +771,18 @@ const ReportManagement = () => {
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Photos</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {selectedReport.photos.map((photo, index) => (
+                      {selectedReport.photos.map((photoUrl, index) => (
                         <div key={index} className="relative h-40 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
                           <img
-                            src={photo}
+                            src={photoUrl}
                             alt={`Report image ${index + 1}`}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.target.onerror = null;
-                              e.target.src = '/placeholder-image.jpg'; // Fallback image
+                              // Optional: Set a placeholder image
+                              // e.target.src = "/placeholder-image.jpg";
                               e.target.classList.add('opacity-50');
+                              console.error(`Failed to load image: ${photoUrl}`);
                             }}
                           />
                         </div>
@@ -790,33 +812,6 @@ const ReportManagement = () => {
                     </div>
                   </div>
                 )}
-
-                {/* Additional metadata */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Additional Information</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
-                    <div>
-                      <span className="text-gray-500">Report ID:</span>
-                      <span className="ml-2 text-gray-900">
-                        {selectedReport.report_id || selectedReport.id || 'N/A'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Category:</span>
-                      <span className="ml-2 text-gray-900">{selectedReport.category || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Priority:</span>
-                      <span className="ml-2 text-gray-900">{selectedReport.priority || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Last Updated:</span>
-                      <span className="ml-2 text-gray-900">
-                        {selectedReport.updatedAt ? new Date(selectedReport.updatedAt).toLocaleDateString() : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 

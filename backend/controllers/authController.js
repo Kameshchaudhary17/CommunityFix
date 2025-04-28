@@ -7,6 +7,7 @@ require('dotenv').config();
 const {notificationService} = require('../services/notificationService')
 const { multer, storage } = require('../middleware/fileMiddleware');
 const fs = require('fs');
+const path = require('path');
 
 const upload = multer({ 
     storage: storage,
@@ -570,8 +571,6 @@ const updateUser = async (req, res) => {
   }
 };
 
-// Delete user
-
 const deleteUser = async (req, res) => {
   const { user_id } = req.params;
   
@@ -586,33 +585,73 @@ const deleteUser = async (req, res) => {
     }
     
     // Delete user's profile picture and citizenship photo if they exist
-    if (user.profilePicture && fs.existsSync(user.profilePicture)) {
-      try {
-        fs.unlinkSync(user.profilePicture);
-      } catch (fileError) {
-        console.error('Error deleting profile picture:', fileError);
-        // Continue with deletion even if file removal fails
+    if (user.profilePicture) {
+      const fullPath = path.join('storage', user.profilePicture);
+      if (fs.existsSync(fullPath)) {
+        try {
+          fs.unlinkSync(fullPath);
+        } catch (fileError) {
+          console.error('Error deleting profile picture:', fileError);
+          // Continue with deletion even if file removal fails
+        }
       }
     }
     
-    if (user.citizenshipPhoto && fs.existsSync(user.citizenshipPhoto)) {
-      try {
-        fs.unlinkSync(user.citizenshipPhoto);
-      } catch (fileError) {
-        console.error('Error deleting citizenship photo:', fileError);
-        // Continue with deletion even if file removal fails
+    if (user.citizenshipPhoto) {
+      // Handle JSON array of citizenship photos
+      const photos = JSON.parse(user.citizenshipPhoto);
+      for (const photo of photos) {
+        const fullPath = path.join('storage', photo);
+        if (fs.existsSync(fullPath)) {
+          try {
+            fs.unlinkSync(fullPath);
+          } catch (fileError) {
+            console.error('Error deleting citizenship photo:', fileError);
+            // Continue with deletion even if file removal fails
+          }
+        }
       }
     }
     
     // Try to send notification but don't let it block the user deletion
-    try {
-      await sendAccountDeletionNotification(user.email);
-    } catch (emailError) {
-      console.error('Failed to send deletion notification:', emailError);
-      // Continue with user deletion even if email fails
+    if (user.user_email) {
+      try {
+        await sendAccountDeletionNotification(user.user_email);
+      } catch (emailError) {
+        console.error('Failed to send deletion notification:', emailError);
+        // Continue with user deletion even if email fails
+      }
     }
     
-    // Delete user
+    // Delete all related records first to avoid foreign key constraint errors
+    // Corrected based on your actual schema model names
+
+    // Delete user's upvotes
+    await prisma.upvote.deleteMany({
+      where: { userId: parseInt(user_id) }
+    });
+
+    // Delete user's notifications
+    await prisma.notification.deleteMany({
+      where: { userId: parseInt(user_id) }
+    });
+
+    // Delete user's comments
+    await prisma.comment.deleteMany({
+      where: { userId: parseInt(user_id) }
+    });
+
+    // Delete user's suggestions
+    await prisma.suggestion.deleteMany({
+      where: { userId: parseInt(user_id) }
+    });
+
+    // Delete user's reports
+    await prisma.reports.deleteMany({
+      where: { user_id: parseInt(user_id) }
+    });
+    
+    // Now delete the user
     await prisma.users.delete({
       where: { user_id: parseInt(user_id) }
     });
@@ -622,7 +661,11 @@ const deleteUser = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete user error:', error);
-    return res.status(500).json({ error: "Internal server error." });
+    return res.status(500).json({ 
+      error: "Internal server error.",
+      details: error.message,
+      code: error.code 
+    });
   }
 };
 
@@ -687,6 +730,7 @@ const sendAccountDeletionNotification = async (userEmail) => {
     throw error; // Re-throw the error so the calling function can handle it
   }
 };
+
 
 // Get users by municipality and ward number
 const getUsersByLocation = async (req, res) => {

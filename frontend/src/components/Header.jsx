@@ -452,8 +452,13 @@ const Header = (props) => {
                     )}
                   </div>
                   
+                  {/* Always show the View All button - removed any conditional rendering */}
                   <div className="p-3 border-t border-gray-200 text-center">
-                    <Link to="/notificationuser" className="text-sm text-blue-600 hover:text-blue-800" onClick={() => setShowNotifications(false)}>
+                    <Link 
+                      to="/notificationuser" 
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium" 
+                      onClick={() => setShowNotifications(false)}
+                    >
                       View all notifications
                     </Link>
                   </div>

@@ -286,11 +286,11 @@ const SuggestionManagement = () => {
                         <th 
                           scope="col" 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          onClick={() => handleSort('submittedDate')}
+                          onClick={() => handleSort('createdAt')}
                         >
                           <div className="flex items-center space-x-1">
                             <span>Submitted Date</span>
-                            {sortConfig.key === 'submittedDate' && (
+                            {sortConfig.key === 'createdAt' && (
                               sortConfig.direction === 'asc' ? 
                               <ChevronUp className="h-4 w-4" /> : 
                               <ChevronDown className="h-4 w-4" />
@@ -369,7 +369,7 @@ const SuggestionManagement = () => {
                           
                           {/* Submitted Date */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {suggestion.submittedDate}
+                            {suggestion.createdAt}
                           </td>
                           
                           {/* Status */}
@@ -499,7 +499,7 @@ const SuggestionManagement = () => {
                         {selectedSuggestion.status.replace('_', ' ')}
                       </span>
                       <span className="ml-4 text-sm text-gray-500">
-                        Submitted on {selectedSuggestion.submittedDate}
+                        Submitted on {selectedSuggestion.createdAt}
                       </span>
                       <span className="ml-4 flex items-center text-sm">
                         <ThumbsUp className="h-4 w-4 text-blue-500 mr-1" />
@@ -537,7 +537,7 @@ const SuggestionManagement = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Submission Date</h4>
-                    <p className="text-sm text-gray-600">{selectedSuggestion.submittedDate}</p>
+                    <p className="text-sm text-gray-600">{selectedSuggestion.createdAt}</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Last Update</h4>

@@ -4,7 +4,7 @@ import { Search, Bell, X, Check, ChevronRight, Clock, User } from "lucide-react"
 import axios from "axios";
 import { io } from "socket.io-client";
 
-const Header = () => {
+const MunicipalityHeader = () => {
   const [user, setUser] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -394,7 +394,16 @@ const Header = () => {
                     )}
                   </div>
                   
-                  
+                  {/* Added View All Notifications button */}
+                  <div className="p-3 border-t border-gray-200 text-center">
+                    <Link 
+                      to="/notification" 
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium" 
+                      onClick={() => setShowNotifications(false)}
+                    >
+                      View all notifications
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
@@ -407,7 +416,7 @@ const Header = () => {
                     {user ? user.user_name : "User"}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {"Citizen"}
+                    {"Municipality"}
                   </div>
                 </div>
               </div>
@@ -419,4 +428,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default MunicipalityHeader;

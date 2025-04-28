@@ -6,7 +6,6 @@ import {
   LineChart,
   Lightbulb,
   BookMarked,
-  Info,
   History,
   LogOut
 } from 'lucide-react';
@@ -34,7 +33,6 @@ if(!token) navigate('/login')
     { icon: <LineChart size={20} />, label: 'My Report', path: '/myreport' },
     { icon: <Lightbulb size={20} />, label: 'Suggestion', path: '/suggestion' },
     { icon: <BookMarked size={20} />, label: 'My Suggestion', path: '/mysuggestion' },
-    { icon: <Info size={20} />, label: 'About Community Fix', path: '/about' },
     // Logout is handled differently, so we'll set path to null
     { icon: <LogOut size={20} />, label: 'Logout', path: null, onClick: handleLogout }
   ];
